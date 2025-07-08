@@ -6,7 +6,7 @@ import MainLayout from "../layouts/MainLayout";
 import HomePage from "../feature/home/page/HomePage";
 import MonitoringPage from "../feature/monitoring/page/MonitoringPage";
 import SettingsPage from "../feature/settings/page/SettingsPage";
-import ReviewPage from "../feature/home/page/ReviewPage";
+import UserInfoPage from "../feature/home/page/UserInfoPage";
 
 
 export default function AppRouter() {
@@ -58,7 +58,7 @@ export default function AppRouter() {
           <Route index element={<HomePage setIsLoggedIn={setIsLoggedIn} />} />
           <Route path="monitoring" element={<MonitoringPage />} />
           <Route path="settings" element={<SettingsPage />} />
-          <Route path="review/:id" element={<ReviewPage />} />
+          <Route path="userinfo/:id" element={<UserInfoPage />} />
 
         </Route>
       </Routes>

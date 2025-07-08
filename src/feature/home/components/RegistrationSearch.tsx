@@ -272,7 +272,7 @@ onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
                         }}
 
                         onClick={() => {
-                          navigate(`/app/review/${item.id}`, { state: item });
+                          navigate(`/app/userinfo/${item.id}`, { state: item });
 
                         }}
                       >

@@ -15,7 +15,6 @@ export default function HomePage({ setIsLoggedIn }: HomePageProps) {
   const [activeTab, setActiveTab] = useState<"registration" | "management">("registration");
 
   return (
-
     <Grid container spacing={3}>
       {/* Column ซ้าย */}
       <Grid item xs={12} md={8} >
