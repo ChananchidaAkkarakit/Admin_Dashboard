@@ -17,19 +17,16 @@ export default function HomePage({ setIsLoggedIn }: HomePageProps) {
   return (
     <Grid container spacing={3}>
       {/* Column ซ้าย */}
-      <Grid item xs={12} md={8} >
+      <Grid item xs={12} md={8}>
         <Box
           sx={{
             display: "flex",
             flexDirection: "column",
-            width: "658px", ///////////////////note
-            //gap: 2,
+            width: "100%", // ปรับให้ responsive
           }}
         >
-          {/* Welcome Header */}
           <WelcomeHeader />
 
-          {/* การ์ด 2 ใบ */}
           <Box display="flex" p={2} gap={3} justifyContent="center" flexWrap="wrap">
             <Box
               sx={{ cursor: "pointer" }}
@@ -45,8 +42,6 @@ export default function HomePage({ setIsLoggedIn }: HomePageProps) {
             </Box>
           </Box>
 
-
-          {/* เนื้อหา Search หรือ Management */}
           {activeTab === "registration" && (
             <Box>
               <RegistrationSearch />
@@ -61,28 +56,24 @@ export default function HomePage({ setIsLoggedIn }: HomePageProps) {
       </Grid>
 
       {/* Column ขวา */}
-      <Grid container>
-        <Grid item xs={12} md={10}>
-          {/* Content */}
-        </Grid>
-
-        <Divider
-          orientation="vertical"
-          flexItem
-          sx={{
-            display: { xs: "none", md: "block" },
-            mx: 0, // หรือ mx: 2 ถ้าอยากให้ห่าง
-            my: 1, // ระยะขอบบน-ล่าง
-            borderColor: "#CBDCEB",
-          }}
-        />
-
-        <Grid item xs={12} md={2}>
-          <ProfilePanel setIsLoggedIn={setIsLoggedIn} />
+      <Grid item xs={12} md={4}>
+        <Grid container spacing={2}>
+          <Grid item xs={12}>
+            <Divider
+              orientation="horizontal"
+              flexItem
+              sx={{
+                display: { xs: "block", md: "none" },
+                my: 2,
+                borderColor: "#CBDCEB",
+              }}
+            />
+          </Grid>
+          <Grid item xs={12}>
+            <ProfilePanel setIsLoggedIn={setIsLoggedIn} />
+          </Grid>
         </Grid>
       </Grid>
-
     </Grid>
-
   );
 }

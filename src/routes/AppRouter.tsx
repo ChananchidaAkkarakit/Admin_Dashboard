@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import LoginPage from "../feature/auth/page/LoginPage";
 import AuthLayout from "../layouts/AuthLayout";
 import MainLayout from "../layouts/MainLayout";
@@ -28,7 +28,7 @@ export default function AppRouter() {
   // จบ useEffect
 
   return (
-    <BrowserRouter>
+    <HashRouter basename="/Admin_Dashboard">
       <Routes>
         {/* หน้า Login */}
         <Route
@@ -62,6 +62,6 @@ export default function AppRouter() {
 
         </Route>
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   );
 }

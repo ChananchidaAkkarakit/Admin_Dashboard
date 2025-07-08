@@ -1,6 +1,6 @@
 import { Box, Typography, Switch, Avatar } from "@mui/material";
-import OnIcon from "../../../assets/icons/toggle-on.svg?react";
-import OffIcon from "../../../assets/icons/toggle-off.svg?react";
+// import OnIcon from "../../../assets/icons/toggle-on.svg?react";
+// import OffIcon from "../../../assets/icons/toggle-off.svg?react";
 
 
 type NotificationToggleProps = {
