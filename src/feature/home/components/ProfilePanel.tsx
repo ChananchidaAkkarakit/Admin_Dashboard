@@ -105,7 +105,7 @@ export default function ProfilePanel({
       <Box
         sx={{
           borderRadius: "50px",
-          minHeight: 600,
+          minHeight: 500,
           width: "auto",
           display: "flex",
           flexDirection: "column",
