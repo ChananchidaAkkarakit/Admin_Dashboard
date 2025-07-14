@@ -141,17 +141,19 @@ export default function RegistrationSearch() {
   };
 
   return (
-    <Box
-      sx={{
-        borderRadius: 2,
-        width: "100%",
-        maxWidth: "700px",
-        mx: "auto", // Center
-        px: 2,      // Padding ขอบซ้าย-ขวา
-      }}
-    >
+<Box
+  sx={{
+    borderRadius: 2,
+    width: "100%",
+    maxWidth: "700px",
+    mx: "auto",
+    px: 2,
+    height: "80vh", // หรือความสูงตามต้องการ
+    display: "flex",
+    flexDirection: "column",
+  }}
+>
 
-     
       {/* --- Search Bar + Add Button --- */}
       <Box
         sx={{
@@ -205,15 +207,16 @@ export default function RegistrationSearch() {
       </Box>
 
       {/* --- Results --- */}
-      <Box
-        mt={2}
-        px={0}
-        sx={{
-          maxHeight: 250,        // กำหนดความสูงสูงสุด (ปรับค่าตามต้องการ)
-          overflowY: "auto",     // ให้มี scroll bar แนวตั้งถ้าเกิน
-          pr: 1,                 // เพิ่ม padding ขวานิดหน่อย กัน scrollbar ทับเนื้อหา
-        }}
-      >
+<Box
+  mt={2}
+  sx={{
+    flex: 1,
+    overflowY: "auto",
+    pr: 1,
+    pb: 2, // เว้นระยะด้านล่าง
+  }}
+>
+
         {isSearching && searchQuery && (
           <Typography color="text.secondary" fontStyle="italic" fontFamily="Inter" fontWeight="300">
             Searching...
