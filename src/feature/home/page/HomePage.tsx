@@ -25,7 +25,7 @@ export default function HomePage({
     <Box
       sx={{
         display: "flex",
-        flexDirection: { xs: "column", sm: "column", md: "none", lg: "row" },
+        flexDirection: { xs: "column", sm: "column", md: "row" },
         gap: { xs: 3, md: 0 },
       }}
     >

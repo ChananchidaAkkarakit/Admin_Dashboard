@@ -13,17 +13,21 @@ export default function SideProfilePanel({
     setProfileImage,
 }: SideProfilePanelProps) {
     return (
-        <>
+        <Box
+            sx={{
+                display: "flex",
+                alignItems: "stretch", // <<< กำหนดให้กึ่งกลางแนวตั้ง
+            }}
+        >
             <Divider
                 orientation="vertical"
                 flexItem
                 sx={{
-                    //py: 10,
                     mx: 3,
                     display: { xs: "none", md: "none", lg: "inline-flex" },
                     borderColor: "#CBDCEB",
                     borderRightWidth: "1.5px",
-                    maxHeight: 550
+                    //maxHeight: 400,
                 }}
             />
 
@@ -40,6 +44,6 @@ export default function SideProfilePanel({
                     setProfileImage={setProfileImage}
                 />
             </Box>
-        </>
+        </Box>
     );
 }
