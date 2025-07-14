@@ -34,7 +34,7 @@ export default function RegistrationSearch() {
       role: "teacher",
       nameThai: "ผู้ช่วยศาสตราจารย์ สมรรถชัย จันทรัตน์",
       nameEng: "Asst.Prof.Samatachai Jantarat",
-      subjects: ["Computer Programming,Computer Programmin,Computer Programmi"],
+      subjects: ["Computer Programming Computer Programmin Computer Programmi"],
       tel: "0-2549-3467",
       email: "samatchai.j@en.rmutt.ac.th",
     },
@@ -151,6 +151,7 @@ export default function RegistrationSearch() {
       }}
     >
 
+     
       {/* --- Search Bar + Add Button --- */}
       <Box
         sx={{
@@ -204,16 +205,15 @@ export default function RegistrationSearch() {
       </Box>
 
       {/* --- Results --- */}
-<Box
-  mt={2}
-  sx={{
-    flex: 1,
-    overflowY: "auto",
-    pr: 1,
-    pb: 2, // เว้นระยะด้านล่าง
-  }}
->
-
+      <Box
+        mt={2}
+        px={0}
+        sx={{
+          maxHeight: "calc(100vh - 580px)",        // กำหนดความสูงสูงสุด (ปรับค่าตามต้องการ)
+          overflowY: "auto",     // ให้มี scroll bar แนวตั้งถ้าเกิน
+          pr: 1,                 // เพิ่ม padding ขวานิดหน่อย กัน scrollbar ทับเนื้อหา
+        }}
+      >
         {isSearching && searchQuery && (
           <Typography color="text.secondary" fontStyle="italic" fontFamily="Inter" fontWeight="300">
             Searching...
