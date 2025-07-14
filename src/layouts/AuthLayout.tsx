@@ -68,7 +68,7 @@ export default function AuthLayout() {
                 <LogoIconbg width={40} height={40} />
               </Box>
               <Typography fontWeight="900" color="#1a237e" fontSize={20}>
-                DropPoint.
+                Kuyyyyyyyyy.
               </Typography>
             </Box>
 

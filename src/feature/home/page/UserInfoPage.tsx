@@ -1,9 +1,9 @@
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Box, Typography, Divider, CardContent, Card, Button, Switch, FormControlLabel } from "@mui/material";
+import { Box, Typography, Divider, CardContent, Card, Switch, FormControlLabel } from "@mui/material";
 import UserIcon from "../../../assets/icons/user.svg?react";
 import SideProfilePanel from "../components/SideProfilePanel";
-import RegistrationSearch from "../components/RegistrationSearch";
+//import RegistrationSearch from "../components/RegistrationSearch";
 import ArrowBackIcon from "../../../assets/icons/arrow-back.svg?react";
 
 
