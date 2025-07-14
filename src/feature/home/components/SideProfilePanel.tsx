@@ -22,7 +22,7 @@ export default function SideProfilePanel({
                     display: { xs: "none", md: "none", lg: "inline-flex" },
                     borderColor: "#CBDCEB",
                     borderRightWidth: "1.5px",
-                    height: 600
+                    minHeight: 500
                 }}
             />
 
