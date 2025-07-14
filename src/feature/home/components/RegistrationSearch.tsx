@@ -209,7 +209,7 @@ export default function RegistrationSearch() {
         mt={2}
         px={0}
         sx={{
-          maxHeight: "calc(100vh - 6000px)",        // กำหนดความสูงสูงสุด (ปรับค่าตามต้องการ)
+          maxHeight: "calc(100vh - 600px)",        // กำหนดความสูงสูงสุด (ปรับค่าตามต้องการ)
           overflowY: "auto",     // ให้มี scroll bar แนวตั้งถ้าเกิน
           pr: 1,                 // เพิ่ม padding ขวานิดหน่อย กัน scrollbar ทับเนื้อหา
         }}
