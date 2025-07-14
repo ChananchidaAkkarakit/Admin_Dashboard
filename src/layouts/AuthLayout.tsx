@@ -18,7 +18,7 @@ export default function AuthLayout() {
 
   // ปรับขนาด Icon ตาม breakpoint
   let iconSize = 500;
-  if (isLg) iconSize = 750;
+  if (isLg) iconSize = 700;
   else if (isMd) iconSize = 450;
   else if (isSm) iconSize = 350;
 
@@ -51,7 +51,7 @@ export default function AuthLayout() {
               minWidth: 400,
               maxWidth: 500,
               height: "100%",
-              maxHeight: 700,
+              maxHeight: 650,
               backgroundColor: "#ffffff",
               boxShadow: "0px 10px 20px rgba(0,0,0,0.1)",
             }}
@@ -68,7 +68,7 @@ export default function AuthLayout() {
                 <LogoIconbg width={40} height={40} />
               </Box>
               <Typography fontWeight="900" color="#1a237e" fontSize={20}>
-                Suchart Sumalee.
+                DropPoint.
               </Typography>
             </Box>
 
