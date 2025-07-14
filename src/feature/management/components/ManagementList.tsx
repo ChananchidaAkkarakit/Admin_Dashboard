@@ -1,4 +1,4 @@
-import { List, ListItemButton, ListItemText, Divider, Box } from "@mui/material";
+import { List, ListItemButton, ListItemText, Box } from "@mui/material";
 import ArrowIcon from "../../../assets/icons/arrow-outlined.svg?react"
 
 export default function ManagementList() {
@@ -10,27 +10,18 @@ export default function ManagementList() {
     return (
     <Box
       sx={{
-        p: 0,
         borderRadius: 2,
         width: "100%",
-        maxWidth: "700px",
+        maxWidth: "668px",
         mx: "auto",
       }}
     >
-      <Divider
-        sx={{
-          pb: 0,
-          my: 2,
-          borderColor: "#CBDCEB",
-          borderBottomWidth: 2,
-        }}
-      />
 
     {/* <Paper sx={{ p: 3, borderRadius: 2 }}> */}
       {/* <Typography variant="h6" gutterBottom>
         📂 Management Menu
       </Typography> */}
-      <List sx={{mt:3}}>
+      <List sx={{mt:1}}>
         {items.map((text) => ( //, idx
           <ListItemButton
             key={text}

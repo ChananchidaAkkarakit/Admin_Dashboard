@@ -17,7 +17,8 @@ const BaseTextField = styled(TextField)(() => ({
   },
   "& .MuiInputBase-input": {
     padding: "0 20px",
-    fontSize: 18,
+    fontSize: "clamp(16px, 2.5vw, 18px)",
+
   },
   "& .MuiInput-underline:before, & .MuiInput-underline:after": {
     display: "none", // ✅ ปิดเส้นใต้

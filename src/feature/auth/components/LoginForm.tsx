@@ -53,7 +53,7 @@ const handleLogin = (event: React.FormEvent<HTMLFormElement>) => {
           borderRadius: "999px",
           fontWeight: "700",
           textTransform: "none",
-          fontSize: 28,
+          fontSize: "clamp(24px, 4.5vw, 28px)",
           fontStyle: "italic",
           height: 60,
           lineHeight: 1.2,

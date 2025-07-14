@@ -12,23 +12,30 @@ import UserInfoPage from "../feature/home/page/UserInfoPage";
 export default function AppRouter() {
   const [isLoggedIn, setIsLoggedIn] = useState(localStorage.getItem("isLoggedIn") === "true");
 
-  // เพิ่ม useEffect ตรงนี้!
   useEffect(() => {
     const handleUnload = () => {
       localStorage.removeItem("isLoggedIn");
-      // ถ้ามี token หรือข้อมูลอื่นๆ เพิ่มเติม
-      // localStorage.removeItem("token");
     };
     window.addEventListener("beforeunload", handleUnload);
-
     return () => {
       window.removeEventListener("beforeunload", handleUnload);
     };
   }, []);
-  // จบ useEffect
+
+  const [profileImage, setProfileImage] = useState<string | null>(
+    localStorage.getItem("profileImage")
+  );
+
+  useEffect(() => {
+    if (profileImage) {
+      localStorage.setItem("profileImage", profileImage);
+    } else {
+      localStorage.removeItem("profileImage");
+    }
+  }, [profileImage]);
 
   return (
-    <HashRouter basename="/Admin_Dashboard">
+    <HashRouter>
       <Routes>
         {/* หน้า Login */}
         <Route
@@ -37,7 +44,6 @@ export default function AppRouter() {
             isLoggedIn ? <Navigate to="/app" replace /> : <AuthLayout />
           }
         >
-          {/* ส่ง setIsLoggedIn ไปที่ LoginPage */}
           <Route
             index
             element={<LoginPage setIsLoggedIn={setIsLoggedIn} />}
@@ -49,20 +55,40 @@ export default function AppRouter() {
           path="/app"
           element={
             isLoggedIn ? (
-              <MainLayout />
+              <MainLayout
+                profileImage={profileImage}
+                setProfileImage={setProfileImage}
+              />
             ) : (
               <Navigate to="/" replace />
             )
           }
         >
-          <Route index element={<HomePage setIsLoggedIn={setIsLoggedIn} />} />
+          <Route
+            index
+            element={
+              <HomePage
+                setIsLoggedIn={setIsLoggedIn}
+                profileImage={profileImage}
+                setProfileImage={setProfileImage}
+              />
+            }
+          />
           <Route path="monitoring" element={<MonitoringPage />} />
           <Route path="settings" element={<SettingsPage />} />
-          <Route path="userinfo/:id" element={<UserInfoPage />} />
+          <Route
+  path="userinfo/:id"
+  element={
+    <UserInfoPage
+      setIsLoggedIn={setIsLoggedIn}
+      profileImage={profileImage}
+      setProfileImage={setProfileImage}
+    />
+  }
+/>
 
         </Route>
       </Routes>
     </HashRouter>
-    
   );
 }

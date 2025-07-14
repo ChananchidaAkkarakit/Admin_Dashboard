@@ -34,7 +34,7 @@ export default function RegistrationSearch() {
       role: "teacher",
       nameThai: "ผู้ช่วยศาสตราจารย์ สมรรถชัย จันทรัตน์",
       nameEng: "Asst.Prof.Samatachai Jantarat",
-      subjects: ["Computer Programming"],
+      subjects: ["Computer Programming,Computer Programmin,Computer Programmi"],
       tel: "0-2549-3467",
       email: "samatchai.j@en.rmutt.ac.th",
     },
@@ -84,10 +84,10 @@ export default function RegistrationSearch() {
   }, [debouncedSearch]);
 
   // ----------------- เพิ่มเมนูเลือกประเภทการเพิ่ม -----------------
-const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
-const handleOpenMenu = (event: React.MouseEvent<HTMLElement>) => {
-  setAnchorEl(event.currentTarget as HTMLElement);
-};
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const handleOpenMenu = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget as HTMLElement);
+  };
 
 
   const handleCloseMenu = () => setAnchorEl(null);
@@ -141,21 +141,37 @@ const handleOpenMenu = (event: React.MouseEvent<HTMLElement>) => {
   };
 
   return (
-    <Box sx={{ borderRadius: 2, width: "100%", maxWidth: "700px" }}>
-      <Divider sx={{ pb: 0, my: 2, borderColor: "#CBDCEB", borderBottomWidth: 2 }} />
+    <Box
+      sx={{
+        borderRadius: 2,
+        width: "100%",
+        maxWidth: "700px",
+        mx: "auto", // Center
+        px: 2,      // Padding ขอบซ้าย-ขวา
+      }}
+    >
+
+     
       {/* --- Search Bar + Add Button --- */}
-      <Box sx={{ display: "flex", alignItems: "center", mt: 2 }}>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          mt: 2,
+          flexWrap: "wrap",       // ถ้าจอแคบ ให้ขึ้นบรรทัดใหม่
+          gap: 1.5,               // ระยะห่างระหว่าง Item
+        }}
+      >
         <TextField
           fullWidth
           label="Search by name"
           value={searchQuery}
-
-onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
-  setSearchQuery(event.target.value);
-}}
-
-
+          onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+            setSearchQuery(event.target.value);
+          }}
           sx={{
+            flex: "1 1 240px",     // ยืดได้ บีบได้ แต่ไม่ต่ำกว่า 240px
+            minWidth: 0,
             "& .MuiOutlinedInput-root": {
               borderRadius: "50px",
               height: 48,
@@ -168,16 +184,15 @@ onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
             "& .MuiInputLabel-root": { fontSize: "13px" },
           }}
         />
-
         <IconButton
           sx={{
-            ml: 2,
             bgcolor: "#133E87",
             "&:hover": { bgcolor: "#1852b1" },
             color: "#fff",
             borderRadius: "50%",
             width: 48,
             height: 48,
+            flex: "0 0 auto",
           }}
           onClick={handleOpenMenu}
         >
@@ -194,7 +209,7 @@ onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
         mt={2}
         px={0}
         sx={{
-          maxHeight: 250,        // กำหนดความสูงสูงสุด (ปรับค่าตามต้องการ)
+          maxHeight: 200,        // กำหนดความสูงสูงสุด (ปรับค่าตามต้องการ)
           overflowY: "auto",     // ให้มี scroll bar แนวตั้งถ้าเกิน
           pr: 1,                 // เพิ่ม padding ขวานิดหน่อย กัน scrollbar ทับเนื้อหา
         }}
@@ -208,11 +223,11 @@ onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
           results.map((item) => (
             <Card key={item.id}
               sx={{
-                mt: 2,
+                mb: 2,
                 bgcolor: "#D6E4EF",
                 borderRadius: "28px",
-                maxWidth: 600,
-                minHeight: 180
+                maxWidth: 600, //600
+                minHeight: 150
               }}>
               <CardContent>
                 <Box sx={{
@@ -313,7 +328,8 @@ onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
                       </Typography>
 
                       {item.subjects?.map((subject, idx) => (
-                        <Typography key={idx}>{subject}</Typography>
+                        <Typography fontWeight="300" fontSize="18px" color="#133E87"
+                        key={idx}>{subject}</Typography>
                       ))}
 
                     </Box>

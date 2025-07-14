@@ -1,20 +1,25 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { Box, ListItemButton, ListItemText } from "@mui/material";
 
 interface SidebarNavItemProps {
-    to: string;
-    icon: React.ReactElement;
-    label: string;
+  to: string;
+  icon: React.ReactElement;
+  label: string;
 }
 
 export default function SidebarNavItem({ to, icon, label }: SidebarNavItemProps) {
+  const location = useLocation();
+  const path = location.pathname;
+
+  // 🌟 เงื่อนไข active แบบ custom
+  const isActive =
+    (to === "/app" && (
+      path === "/app" || path.startsWith("/app/userinfo")
+    )) ||
+    (to !== "/app" && path.startsWith(to));
+
     return (
-        <NavLink
-            to={to}
-            end
-            style={{ display: "block", textDecoration: "none" }}
-        >
-            {({ isActive }) => (
+
                 <ListItemButton
                     sx={{
                         display: "flex",
@@ -29,6 +34,8 @@ export default function SidebarNavItem({ to, icon, label }: SidebarNavItemProps)
                             backgroundColor: isActive ? "#0D3A75" : "#C0D6E9",
                         },
                     }}
+                          component={NavLink}
+      to={to}
                 >
                     {/* Icon container */}
                     <Box
@@ -56,7 +63,5 @@ export default function SidebarNavItem({ to, icon, label }: SidebarNavItemProps)
                         }}
                     />
                 </ListItemButton>
-            )}
-        </NavLink>
     );
 }

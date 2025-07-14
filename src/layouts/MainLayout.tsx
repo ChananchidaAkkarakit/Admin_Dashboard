@@ -1,39 +1,50 @@
-import { Box } from "@mui/material";
-import Sidebar from ".././feature/home/components/sidebar/Sidebar"; 
-//import ProfilePanel from ".././feature/home/components/ProfilePanel"; 
+import { Box, useTheme, useMediaQuery } from "@mui/material";
+import Sidebar from ".././feature/home/components/sidebar/Sidebar";
 import { Outlet } from "react-router-dom";
 
-export default function MainLayout() {
+type MainLayoutProps = {
+  profileImage: string | null;
+  setProfileImage: React.Dispatch<React.SetStateAction<string | null>>;
+};
+
+export default function MainLayout({
+  profileImage,
+  setProfileImage,
+}: MainLayoutProps) {
+  const theme = useTheme();
+  const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
+  const isMediumScreen = useMediaQuery(theme.breakpoints.between("sm", "md"));
+
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh" }}>
-      {/* ส่ง setIsLoggedIn ไป Sidebar หรือ ProfilePanel ถ้าต้องการ */}
-      <Sidebar />
+    <Box sx={{ display: "flex" }}>
+      <Sidebar profileImage={profileImage} />
       <Box
         sx={{
           flex: 1,
           p: 5,
-          pl: 0,
           bgcolor: "#D6E4EF",
-          height: "100vh",
-          overflowY: "auto",
+          minHeight: "100vh",
+          boxSizing: "border-box",
         }}
       >
-            <Box
-              sx={{
-                borderRadius: "35px",
-                py: 6,
-                pl: 6,
-                pr: 3,
-                //pr:1,
-                maxWidth: "1200px",
-                mx: "auto",
-                height: "100%",
-                bgcolor: "#fff",
-              }}
-            >
-              <Outlet />
-              </Box>
-        
+        <Box
+          sx={{
+            width: "100%",
+            bgcolor: "#fff",
+            borderRadius: "35px",
+            p: isSmallScreen ? 3 : isMediumScreen ? 4 : 6,
+            minHeight: "100%",
+            boxSizing: "border-box",
+            height: "auto",
+          }}
+        >
+          {/* 💡 Important: ส่ง context ของ props ต่อให้ Outlet */}
+          <Outlet
+            context={{
+              setProfileImage, // ✅ ทำให้ Outlet สามารถใช้ได้
+            }}
+          />
+        </Box>
       </Box>
     </Box>
   );

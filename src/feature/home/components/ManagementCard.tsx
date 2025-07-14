@@ -7,8 +7,18 @@ export default function ManagementCard({ active }: { active: boolean }) {
       sx={{
         bgcolor: active ? "#D6E4EF" : "#fff",
         border: active ? "2.5px solid #D6E4EF" : "2px solid #D6E4EF",
-        width: 300,
-        height: 210,
+        minWidth: {
+          xs: 143 ,
+          sm: 240 ,
+          md: 260 ,
+          lg: 300
+        },
+        minHeight: {
+          xs: 150 ,
+          sm: 210 ,
+          md: 210,
+          lg: 210
+        },
         borderRadius: "28px",
         textAlign: "center",
         cursor: "pointer",
@@ -27,14 +37,14 @@ export default function ManagementCard({ active }: { active: boolean }) {
           : {},
       }}
     >
-      {/* วงกลมพื้นหลังไอคอน */}
+{/* วงกลมพื้นหลังไอคอน */}
       <Box
         sx={{
           bgcolor: active ? "#fff" : "#D6E4EF",
           color: "#133E87",
           borderRadius: "50%",
-          width: 85,
-          height: 85,
+    width: "clamp(70px, 5vw, 80px)",
+    height: "clamp(70px, 5vw, 80px)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -44,12 +54,18 @@ export default function ManagementCard({ active }: { active: boolean }) {
           
         }}
       >
-        <ManagementIcon style={{ width: 45, height: 45 }} />
+        <ManagementIcon
+  style={{
+    width: "clamp(38px, 4vw, 48px)",
+    height: "clamp(38px, 4vw, 48px)",
+  }}
+/>
+
       </Box>
       <Typography
         variant="h6"
         fontWeight="bold"
-        fontSize="32px"
+        fontSize= "clamp(10px, 5vw, 32px)"
         color="#133E87"
       >
         Management

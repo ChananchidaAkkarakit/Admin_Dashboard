@@ -9,13 +9,44 @@ export default function MonitoringList() {
   ];
 
   return (
-    <Grid container spacing={2}>
+    <Grid container spacing={{ xs: 2, md: 3 }}>
       {items.map((item) => (
-        <Grid item xs={12} sm={6} md={3} key={item.id}>
-          <Paper sx={{ p: 2, textAlign: "center" }}>
-            <Typography fontWeight="bold">Slot {item.id}</Typography>
-            <Typography>Status: {item.status}</Typography>
-            <Typography>Capacity: {item.capacity}</Typography>
+        <Grid
+          item
+          xs={12}
+          sm={6}
+          md={5}
+          key={item.id}
+        >
+          <Paper
+            sx={{
+              p: { xs: 4, sm: 6 },
+              textAlign: "center",
+              height: "100%",
+              minWidth: 0,
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
+            }}
+          >
+
+            <Typography
+              fontWeight="bold"
+              fontSize={{ xs: "1.1rem", md: "1.3rem" }}
+              mb={1}
+            >
+              Slot {item.id}
+            </Typography>
+            <Typography
+              fontSize={{ xs: "0.9rem", md: "1rem" }}
+            >
+              Status: {item.status}
+            </Typography>
+            <Typography
+              fontSize={{ xs: "0.9rem", md: "1rem" }}
+            >
+              Capacity: {item.capacity}
+            </Typography>
           </Paper>
         </Grid>
       ))}

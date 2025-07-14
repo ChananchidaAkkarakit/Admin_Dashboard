@@ -1,11 +1,29 @@
-import { Paper, Box, Typography, Grid } from "@mui/material";
+import { 
+  Paper, 
+  Box, 
+  Typography, 
+  Grid, 
+  useTheme, 
+  useMediaQuery 
+} from "@mui/material";
 import LogoIcon from "../assets/icons/droppoint-illustration.svg?react";
 import LogoIconbg from "../assets/icons/droppoint-bg.svg?react";
 import { Outlet } from "react-router-dom";
 
 export default function AuthLayout() {
+  const theme = useTheme();
+  const isLg = useMediaQuery(theme.breakpoints.up("lg"));
+  const isMd = useMediaQuery(theme.breakpoints.between("md", "lg"));
+  const isSm = useMediaQuery(theme.breakpoints.between("sm", "md"));
+
+  // ปรับขนาด Icon ตาม breakpoint
+  let iconSize = 500;
+  if (isLg) iconSize = 750;
+  else if (isMd) iconSize = 450;
+  else if (isSm) iconSize = 350;
+
   return (
-    <Box sx={{ width: "100vw", height: "100vh", backgroundColor: "#D6E4EF" }}>
+    <Box sx={{ width: "100vw", height: "100vh", backgroundColor: "#D6E4EF", px:10}}>
       <Grid container sx={{ width: "100%", height: "100%" }}>
         {/* จอใหญ่ (md) */}
         <Grid
@@ -19,17 +37,18 @@ export default function AuthLayout() {
             flexDirection: "column",
             backgroundColor: "#D6E4EF",
             textAlign: "center",
-            pl: 20,
+            //pl: 5,
             pr: 5,
           }}
         >
           <Paper
-            elevation={10}
+            //elevation={200}
             sx={{
               borderRadius: "24px",
               p: 5,
               pt: 13,
               width: "100%",
+              minWidth: 400,
               maxWidth: 500,
               height: "100%",
               maxHeight: 700,
@@ -59,7 +78,6 @@ export default function AuthLayout() {
               </Typography>
             </Box>
 
-            {/* Outlet แทน children */}
             <Outlet />
           </Paper>
         </Grid>
@@ -82,6 +100,7 @@ export default function AuthLayout() {
           <Box
             sx={{
               width: "100%",
+              minWidth: 300,
               maxWidth: 400,
               bgcolor: "#ffffff",
               borderRadius: 3,
@@ -89,7 +108,7 @@ export default function AuthLayout() {
               boxShadow: "0px 10px 20px rgba(0,0,0,0.1)",
             }}
           >
-            <Box display="flex" alignItems="center" justifyContent="center" gap={1} mb={2}>
+            <Box display="flex" alignItems="center" justifyContent="start" gap={1} mb={2}>
               <Box
                 sx={{
                   width: 30,
@@ -100,7 +119,7 @@ export default function AuthLayout() {
               >
                 <LogoIconbg width={30} height={30} />
               </Box>
-              <Typography fontWeight="900" color="#1a237e" fontSize={20}>
+              <Typography fontWeight="800" color="#1a237e" fontSize={20}>
                 DropPoint.
               </Typography>
             </Box>
@@ -109,7 +128,6 @@ export default function AuthLayout() {
               Sign in
             </Typography>
 
-            {/* Outlet แทน children */}
             <Outlet />
           </Box>
         </Grid>
@@ -117,9 +135,10 @@ export default function AuthLayout() {
         {/* จอใหญ่ Illustration */}
         <Grid
           item
-          xs={12}
+          xs={10}
           md={6}
           sx={{
+            //pr: 15,
             display: { xs: "none", md: "flex" },
             justifyContent: "center",
             alignItems: "center",
@@ -128,7 +147,7 @@ export default function AuthLayout() {
             textAlign: "center",
           }}
         >
-          <LogoIcon width={700} height={700} />
+          <LogoIcon width={iconSize} height={iconSize} />
         </Grid>
       </Grid>
     </Box>
