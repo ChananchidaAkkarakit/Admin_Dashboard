@@ -141,18 +141,15 @@ export default function RegistrationSearch() {
   };
 
   return (
-<Box
-  sx={{
-    borderRadius: 2,
-    width: "100%",
-    maxWidth: "700px",
-    mx: "auto",
-    px: 2,
-    height: "80vh", // หรือความสูงตามต้องการ
-    display: "flex",
-    flexDirection: "column",
-  }}
->
+    <Box
+      sx={{
+        borderRadius: 2,
+        width: "100%",
+        maxWidth: "700px",
+        mx: "auto", // Center
+        px: 2,      // Padding ขอบซ้าย-ขวา
+      }}
+    >
 
       {/* --- Search Bar + Add Button --- */}
       <Box
