@@ -18,11 +18,12 @@ export default function SideProfilePanel({
                 orientation="vertical"
                 flexItem
                 sx={{
+                    //py: 10,
                     mx: 3,
                     display: { xs: "none", md: "none", lg: "inline-flex" },
                     borderColor: "#CBDCEB",
                     borderRightWidth: "1.5px",
-                    maxHeight: "calc(100vh - 20px)",
+                    maxHeight: 600
                 }}
             />
 
