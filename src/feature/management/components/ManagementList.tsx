@@ -1,13 +1,17 @@
 import { List, ListItemButton, ListItemText, Box } from "@mui/material";
-import ArrowIcon from "../../../assets/icons/arrow-outlined.svg?react"
+import ArrowIcon from "../../../assets/icons/arrow-outlined.svg?react";
+import { useNavigate } from "react-router-dom";
 
 export default function ManagementList() {
+  const navigate = useNavigate();
+
   const items = [
-    "Cupboard Management",
-    "QR Code Management",
-    "Notification Management",
+    { label: "Cupboard Management", path: "/app/management/cupboard" },
+    { label: "QR Code Management", path: "/app/management/qr" },
+    { label: "Notification Management", path: "/app/management/notification" },
   ];
-    return (
+
+  return (
     <Box
       sx={{
         borderRadius: 2,
@@ -16,15 +20,11 @@ export default function ManagementList() {
         mx: "auto",
       }}
     >
-
-    {/* <Paper sx={{ p: 3, borderRadius: 2 }}> */}
-      {/* <Typography variant="h6" gutterBottom>
-        📂 Management Menu
-      </Typography> */}
-      <List sx={{mt:1}}>
-        {items.map((text) => ( //, idx
+      <List sx={{ mt: 1 }}>
+        {items.map(({ label, path }) => (
           <ListItemButton
-            key={text}
+            key={label}
+            onClick={() => navigate(path)}
             sx={{
               bgcolor: "#fff",
               border: "2px solid #CBDCEB",
@@ -34,33 +34,31 @@ export default function ManagementList() {
               transition: "all 0.15s",
               "&:hover": {
                 bgcolor: "#E4EDF6",
-                //borderColor: "#133E87",
               },
-              // เพิ่มระยะห่างระหว่างรายการ
-              //...(idx === items.length - 0 && { mb: 0 }),
             }}
           >
-            <ListItemText primary={text} 
-            sx={{
-              color: "#133E87"
-            }}/>
-          <Box
-            sx={{
-              bgcolor: "#133E87",
-              borderRadius: 10,
-              width: 35,
-              height: 35,
-              alignItems: "center",
-              justifyContent:"center",
-              display: "flex"
-            }}
+            <ListItemText
+              primary={label}
+              sx={{
+                color: "#133E87",
+              }}
+            />
+            <Box
+              sx={{
+                bgcolor: "#133E87",
+                borderRadius: 10,
+                width: 35,
+                height: 35,
+                alignItems: "center",
+                justifyContent: "center",
+                display: "flex",
+              }}
             >
-              <ArrowIcon color="#fff" style={{width: 30, height:30}}/>
-          </Box>
+              <ArrowIcon color="#fff" style={{ width: 30, height: 30 }} />
+            </Box>
           </ListItemButton>
         ))}
       </List>
-
     </Box>
   );
 }

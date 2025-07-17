@@ -1,12 +1,13 @@
 import React, { useState, useMemo } from "react";
 import {
-  Typography, Card, CardContent, Box, Divider, IconButton, TextField, Menu, MenuItem
+  Typography, Card, CardContent, Box, Divider, IconButton,
 } from "@mui/material";
-import UserAddIcon from "../../../assets/icons/user-add.svg?react";
+//import UserAddIcon from "../../../assets/icons/user-add.svg?react";
 import UserIcon from "../../../assets/icons/user.svg?react";
 import { debounce } from "lodash";
 import ArrowIcon from "../../../assets/icons/arrow-outlined.svg?react";
 import { useNavigate } from "react-router-dom";
+import SearchBar from "../../../components/SearchBar";
 //import "../page/ReviewPage"
 
 interface UserItem {
@@ -84,13 +85,13 @@ export default function RegistrationSearch() {
   }, [debouncedSearch]);
 
   // ----------------- เพิ่มเมนูเลือกประเภทการเพิ่ม -----------------
-  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
-  const handleOpenMenu = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorEl(event.currentTarget as HTMLElement);
-  };
+  // const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  // const handleOpenMenu = (event: React.MouseEvent<HTMLElement>) => {
+  //   setAnchorEl(event.currentTarget as HTMLElement);
+  // };
 
 
-  const handleCloseMenu = () => setAnchorEl(null);
+  // const handleCloseMenu = () => setAnchorEl(null);
 
   // เพิ่มอาจารย์
   const handleAddTeacher = () => {
@@ -113,7 +114,7 @@ export default function RegistrationSearch() {
         email,
       }
     ]);
-    handleCloseMenu();
+    //handleCloseMenu();
   };
 
   // เพิ่มนักศึกษา
@@ -137,7 +138,7 @@ export default function RegistrationSearch() {
         email,
       }
     ]);
-    handleCloseMenu();
+    //handleCloseMenu();
   };
 
   return (
@@ -153,7 +154,7 @@ export default function RegistrationSearch() {
 
      
       {/* --- Search Bar + Add Button --- */}
-      <Box
+      {/* <Box
         sx={{
           display: "flex",
           alignItems: "center",
@@ -183,8 +184,8 @@ export default function RegistrationSearch() {
             },
             "& .MuiInputLabel-root": { fontSize: "13px" },
           }}
-        />
-        <IconButton
+        /> */}
+        {/* <IconButton
           sx={{
             bgcolor: "#133E87",
             "&:hover": { bgcolor: "#1852b1" },
@@ -202,7 +203,13 @@ export default function RegistrationSearch() {
           <MenuItem onClick={handleAddTeacher}>เพิ่มอาจารย์</MenuItem>
           <MenuItem onClick={handleAddStudent}>เพิ่มนักศึกษา</MenuItem>
         </Menu>
-      </Box>
+      </Box> */}
+<SearchBar
+  value={searchQuery}
+  onChange={setSearchQuery}
+  onAddTeacher={handleAddTeacher}
+  onAddStudent={handleAddStudent}
+/>
 
       {/* --- Results --- */}
       <Box

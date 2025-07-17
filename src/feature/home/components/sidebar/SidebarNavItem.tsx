@@ -14,7 +14,7 @@ export default function SidebarNavItem({ to, icon, label }: SidebarNavItemProps)
   // 🌟 เงื่อนไข active แบบ custom
   const isActive =
     (to === "/app" && (
-      path === "/app" || path.startsWith("/app/userinfo")
+      path === "/app" || path.startsWith("/app/userinfo") || path.startsWith("/app/management/cupboard")
     )) ||
     (to !== "/app" && path.startsWith(to));
 

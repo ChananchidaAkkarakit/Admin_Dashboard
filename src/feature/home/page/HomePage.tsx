@@ -64,7 +64,7 @@ export default function HomePage({
               <ManagementCard active={activeTab === "management"} />
             </Box>
           </Box>
- <Divider sx={{ pb: 0, my: 2, borderColor: "#CBDCEB", borderBottomWidth: 2 }} />
+          <Divider sx={{ pb: 0, my: 2, borderColor: "#CBDCEB", borderBottomWidth: 2 }} />
           {activeTab === "registration" && (
             <Box>
               <RegistrationSearch />
