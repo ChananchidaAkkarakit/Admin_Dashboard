@@ -17,7 +17,6 @@ interface SearchBarProps {
   addIcon?: React.ReactNode; // เพิ่มตรงนี้
 }
 
-
 export default function SearchBar({
   value,
   onChange,

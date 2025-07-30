@@ -11,12 +11,12 @@ export default function LoginForm({ setIsLoggedIn }: LoginFormProps) {
   const [showPassword, setShowPassword] = useState(false); // <== เพิ่มบรรทัดนี้
   const navigate = useNavigate();
 
-const handleLogin = (event: React.FormEvent<HTMLFormElement>) => {
-  event.preventDefault();
-  localStorage.setItem("isLoggedIn", "true");
-  setIsLoggedIn(true);
-  navigate("/app", { replace: true });
-};
+  const handleLogin = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    localStorage.setItem("isLoggedIn", "true");
+    setIsLoggedIn(true);
+    navigate("/app/home", { replace: true });
+  };
 
 
   return (

@@ -146,13 +146,13 @@ export default function RegistrationSearch() {
       sx={{
         borderRadius: 2,
         width: "100%",
-        maxWidth: "700px",
+        //maxWidth: "700px",
         mx: "auto", // Center
         px: 2,      // Padding ขอบซ้าย-ขวา
       }}
     >
 
-     
+
       {/* --- Search Bar + Add Button --- */}
       {/* <Box
         sx={{
@@ -185,7 +185,7 @@ export default function RegistrationSearch() {
             "& .MuiInputLabel-root": { fontSize: "13px" },
           }}
         /> */}
-        {/* <IconButton
+      {/* <IconButton
           sx={{
             bgcolor: "#133E87",
             "&:hover": { bgcolor: "#1852b1" },
@@ -204,12 +204,12 @@ export default function RegistrationSearch() {
           <MenuItem onClick={handleAddStudent}>เพิ่มนักศึกษา</MenuItem>
         </Menu>
       </Box> */}
-<SearchBar
-  value={searchQuery}
-  onChange={setSearchQuery}
-  onAddTeacher={handleAddTeacher}
-  onAddStudent={handleAddStudent}
-/>
+      <SearchBar
+        value={searchQuery}
+        onChange={setSearchQuery}
+        onAddTeacher={handleAddTeacher}
+        onAddStudent={handleAddStudent}
+      />
 
       {/* --- Results --- */}
       <Box
@@ -336,7 +336,7 @@ export default function RegistrationSearch() {
 
                       {item.subjects?.map((subject, idx) => (
                         <Typography fontWeight="300" fontSize="18px" color="#133E87"
-                        key={idx}>{subject}</Typography>
+                          key={idx}>{subject}</Typography>
                       ))}
 
                     </Box>

@@ -1,11 +1,29 @@
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Box, Typography, Divider, CardContent, Card, Switch, FormControlLabel } from "@mui/material";
+import {
+  Box,
+  Typography,
+  Divider,
+  CardContent,
+  Card,
+  Switch,
+  FormControlLabel,
+  Button,
+  //IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  // Menu,
+  // MenuItem
+} from "@mui/material";
 import UserIcon from "../../../assets/icons/user.svg?react";
 import SideProfilePanel from "../components/SideProfilePanel";
 //import RegistrationSearch from "../components/RegistrationSearch";
 import ArrowBackIcon from "../../../assets/icons/arrow-back.svg?react";
-
+//import { Color } from "antd/es/color-picker";
+//import UserMenuIcon from "../../../assets/icons/moremenu.svg?react"
+import DeleteIcon from "../../../assets/icons/bin.svg?react"
 
 interface UserItem {
   id: number;
@@ -36,18 +54,34 @@ export default function UserInfoPage({
     setChecked(event.target.checked);
   };
 
+  const [openDialog, setOpenDialog] = React.useState(false);
+  //const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  // const open = Boolean(anchorEl);
+
+  // const handleClick = (event: React.MouseEvent<HTMLElement>) => {
+  //   setAnchorEl(event.currentTarget); // ใช้ตำแหน่งของปุ่ม
+  // };
+
+  // const handleClose = () => {
+  //   setAnchorEl(null);
+  // };
+
+  const handleDelete = () => {
+    // 🔥 ส่วนนี้คือ action จริงเมื่อยืนยันลบ
+    console.log("Deleted", state.id);
+    // คุณสามารถเชื่อมกับ backend หรือ firebase ได้ที่นี่
+    setOpenDialog(false);
+  };
 
   return (
     <Box
       sx={{
         display: "flex",
-        flexDirection: { xs: "column", sm: "column", md: "none", lg: "row" },
-        //gap: { xs: 3, md: 0 },
-        // px: 2,
-        // mt: 4,
+        flexDirection: { xs: "column", lg: "row" },
         width: "100%",
       }}
     >
+
       {/* Column ซ้าย */}
       <Box
         sx={{
@@ -82,6 +116,32 @@ export default function UserInfoPage({
         {/* 
 <RegistrationSearch/> */}
         {/* Card */}
+        {/* <Box sx={{
+          display: "flex",
+          justifyContent: "end",
+          //p: 5
+
+        }}>
+          <Button
+            onClick={() => setOpenDialog(true)}
+            sx={{
+              //height: 36,
+              bgcolor: "#D41E1E",
+              color: "#fff",
+              fontSize: 18,
+              fontWeight: 500,
+              mx: 3,
+              borderRadius: 10,
+              "&:hover": {
+                bgcolor: "#fff",
+                color: "#D41E1E",
+                border: "1px solid #D41E1E",
+              },
+            }}
+          >
+           <DeleteIcon/>
+          </Button>
+        </Box> */}
         <Card key={state.id}
           sx={{
             mb: 2,
@@ -122,31 +182,54 @@ export default function UserInfoPage({
                 alignItems: "start",
                 justifyContent: "center",
               }}>
-                <Typography fontFamily="Noto Sans Thai" color="#133E87" fontSize="20px" fontWeight="500">
-                  {state.nameThai}
-                </Typography>
-                <Typography color="#133E87" fontSize="20px" fontWeight="300">
-                  {state.nameEng}
-                </Typography>
 
-                <Box sx={{
-                  position: "absolute",
-                  left: "75%",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                }}>
+                <Box display="flex" alignItems="center" justifyContent="space-between">
+                  {/* Left: Name */}
+                  <Box>
+                    <Typography fontFamily="Noto Sans Thai" color="#133E87" fontSize="20px" fontWeight="500">
+                      {state.nameThai}
+                    </Typography>
+                    <Typography fontFamily="Inter" color="#133E87" fontSize="20px" fontWeight="300">
+                      {state.nameEng}
+                    </Typography>
+                  </Box>
+                  {/* Right: Switch */}
+                  {/* <Box sx={{
+                    display: "flex",
+                    justifyContent: "end",
+                    ml: 15
+                  }}>
+                    <IconButton
+                      onClick={handleClick}
+                      sx={{
+                        bgcolor: "#fff",
+                        width: 35,
+                        height: 35,
+                        "&:hover": {
+                          bgcolor: "#1852b1",
+                          boxShadow: 3,
+                          "& svg": { color: "#fff" },
+                        },
+                        "& svg": { color: "#1852b1" },
+                        transition: "0.2s",
+                      }}
+                    >
+                      <UserMenuIcon style={{ width: 25, height: 25 }} />
+                    </IconButton>
+                     */}
+
+                  {/* </Box> */}
                   <FormControlLabel
                     label={checked ? "Enable" : "Disable"}
                     control={
-
                       <Switch
                         checked={checked}
                         onChange={handleChange}
                         sx={{
+                          ml: 3,
                           justifyContent: "flex-end",
                           width: 75,
                           height: 55,
-
                           //border: 10,
                           "& .MuiSwitch-switchBase": {
                             //margin: 2,
@@ -185,7 +268,9 @@ export default function UserInfoPage({
                         color: "#133E87",
                       },
                     }}
-                  /></Box>
+                  />
+
+                </Box>
               </Box>
             </Box>
 
@@ -220,13 +305,18 @@ export default function UserInfoPage({
                     Subjects :
                   </Typography>
 
-                  {state.subjects?.map((subject, idx) => (
-                    <Typography fontWeight="300" fontSize="18px" color="#133E87"
-                      key={idx}>{subject}</Typography>
+                  {state.subjects?.map(subject => (
+                    <Typography
+                      key={subject} // ใช้ค่าจริงเป็น key
+                      fontWeight="300"
+                      fontSize="18px"
+                      color="#133E87"
+                    >
+                      {subject}
+                    </Typography>
                   ))}
 
                 </Box>
-
               )}
               <Divider orientation="vertical" flexItem sx={{ mx: 2, borderColor: "#fff", borderBottomWidth: "2px" }} />
               <Box sx={{
@@ -249,6 +339,32 @@ export default function UserInfoPage({
             </Box>
           </CardContent>
         </Card>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "end"
+          }}
+        >
+          <Button
+            onClick={() => setOpenDialog(true)}
+            sx={{
+              //height: 36,
+              bgcolor: "#D41E1E",
+              color: "#fff",
+              fontSize: 18,
+              fontWeight: 500,
+              mx: 3,
+              borderRadius: 10,
+              "&:hover": {
+                bgcolor: "#fff",
+                color: "#D41E1E",
+                border: "1px solid #D41E1E",
+              },
+            }}
+          >
+            <DeleteIcon />
+          </Button>
+        </Box>
       </Box>
 
       {/* Column ขวา */}
@@ -257,6 +373,64 @@ export default function UserInfoPage({
         profileImage={profileImage}
         setProfileImage={setProfileImage}
       />
+      <Dialog
+        open={openDialog}
+        onClose={() => setOpenDialog(false)}
+        PaperProps={{
+          sx: {
+            borderRadius: 4,
+            p: 2,
+            minWidth: 360,
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            fontWeight: 700,
+            fontSize: "20px",
+            color: "#d32f2f", // สีแดงเล็กน้อยให้เด่น
+          }}
+        >
+          Confirm Deletion
+        </DialogTitle>
+
+        <DialogContent sx={{ pb: 1 }}>
+          <Typography variant="body1" color="text.secondary">
+            Are you sure you want to delete{" "}
+            <strong style={{ color: "#000" }}>
+              {state.nameEng || state.nameThai}
+            </strong>
+            ?
+          </Typography>
+        </DialogContent>
+
+        <DialogActions sx={{ justifyContent: "flex-end", pr: 2 }}>
+          <Button
+            onClick={() => setOpenDialog(false)}
+            variant="outlined"
+            sx={{
+              borderRadius: 2,
+              textTransform: "none",
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDelete}
+            variant="contained"
+            color="error"
+            sx={{
+              borderRadius: 2,
+              textTransform: "none",
+              boxShadow: "none",
+            }}
+          >
+            Confirm
+          </Button>
+        </DialogActions>
+      </Dialog>
+
     </Box>
   );
 }
+

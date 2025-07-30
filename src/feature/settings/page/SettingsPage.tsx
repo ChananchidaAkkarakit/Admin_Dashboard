@@ -23,7 +23,7 @@ export default function SettingsPage() {
   return (
     <Box
       sx={{
-        maxWidth: "1200px",
+        //maxWidth: "1200px",
         //height: "100%"
         //mx: "auto",
         //py: 6,
@@ -42,7 +42,7 @@ export default function SettingsPage() {
 
       <Grid container spacing={0}>
         {/* Grid item ฝั่งซ้าย */}
-        <Grid item xs={12} md={3}>
+        <Grid item xs={12} md={2.5} >
           <Button
             sx={{
               bgcolor: isOpen ? "#E8F1FB" : "#E8F1FB",
@@ -51,7 +51,8 @@ export default function SettingsPage() {
               },
               borderRadius: "35px",
               minWidth: 180,
-              maxWidth: 180,
+              width: "80%",
+              //maxWidth: 180,
               minHeight: 170,
               maxHeight: 250,
               display: "flex",
@@ -95,12 +96,13 @@ export default function SettingsPage() {
         </Grid>
 
         {/* Grid item ฝั่งขวา */}
-        <Grid item xs={12} md={9}>
+        <Grid item xs={12} md={9.5}>
           <Box
             sx={{
               display: "flex",
               flexDirection: "column",
               gap: 2,
+              width: "auto"
               //borderRadius: "0px"
             }}
           >

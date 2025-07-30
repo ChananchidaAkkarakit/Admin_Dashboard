@@ -15,6 +15,12 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
+    /* Path alias */
+    "baseUrl": ".",                          // ✅ ต้องมี
+    "paths": {
+      "@shared/*": ["../shared-types/*"]     // ✅ ต้องมี
+    },
+
     /* Linting */
     "strict": true,
     "noUnusedLocals": true,
@@ -23,8 +29,5 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-
-"include": ["src"]
-
+  "include": ["src", "../shared-types"]      // ✅ รวม type folder มาด้วย
 }
-

@@ -6,7 +6,7 @@ import ManagementCard from "../components/ManagementCard";
 //import ProfilePanel from "../components/ProfilePanel";
 import SideProfilePanel from "../components/SideProfilePanel";
 import RegistrationSearch from "../components/RegistrationSearch";
-import ManagementList from "../../management/components/ManagementList";
+import ManagementList from "../../management/Cupboard/components/ManagementList";
 
 type HomePageProps = {
   setIsLoggedIn: React.Dispatch<React.SetStateAction<boolean>>;
@@ -50,6 +50,7 @@ export default function HomePage({
             xs: 1.5,   // จอเล็ก: gap น้อย
             sm: 2,   // จอกลาง: gap ปานกลาง
             md: 3,   // จอใหญ่: gap มาก
+            
           }} justifyContent="center" flexWrap="wrap">
             <Box
               sx={{ cursor: "pointer" }}

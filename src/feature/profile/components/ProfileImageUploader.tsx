@@ -71,7 +71,7 @@ export default function ProfileImageUploader({ profileImage, setProfileImage, on
                             overflow: "hidden",
                             transition: "all 0.3s ease",
                             "&:hover": { bgcolor: "#f0f4fa" },
-                            
+
                         }}
 
                     >

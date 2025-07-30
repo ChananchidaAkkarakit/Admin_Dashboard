@@ -1,5 +1,5 @@
 import { Box, Divider } from "@mui/material";
-import ProfilePanel from "../../profile/components/ProfilePanel"; // 👈 import จากที่แยกไว้
+import ProfilePanel from "../../profile/components/ProfilePanel";
 
 type SideProfilePanelProps = {
   setIsLoggedIn: React.Dispatch<React.SetStateAction<boolean>>;
@@ -17,9 +17,19 @@ export default function SideProfilePanel({
       <Divider
         orientation="vertical"
         flexItem
-        sx={{ mx: 3, display: { xs: "none", lg: "inline-flex" }, borderColor: "#CBDCEB" }}
+        sx={{
+          mx: 3,
+          display: { xs: "none", md: "none", lg: "inline-flex" },
+          borderColor: "#CBDCEB"
+        }}
       />
-      <Box sx={{ width: 280, pl: 3 }}>
+      <Box
+        sx={{
+          width: 280,
+          pl: 3,
+          display: { xs: "none", md: "none", lg: "block" }
+        }}
+      >
         <ProfilePanel
           setIsLoggedIn={setIsLoggedIn}
           profileImage={profileImage}

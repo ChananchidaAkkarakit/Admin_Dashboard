@@ -1,6 +1,8 @@
 import { Box, useTheme, useMediaQuery } from "@mui/material";
 import Sidebar from ".././feature/home/components/sidebar/Sidebar";
 import { Outlet } from "react-router-dom";
+import { useLocation } from "react-router-dom";
+import { SlotProvider } from "../feature/management/Cupboard/contexts/SlotContext"; // ✅ import ให้ถูก path
 
 type MainLayoutProps = {
   profileImage: string | null;
@@ -14,6 +16,11 @@ export default function MainLayout({
   const theme = useTheme();
   const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const isMediumScreen = useMediaQuery(theme.breakpoints.between("sm", "md"));
+
+  const location = useLocation();
+  const isCBManagementPage = location.pathname === "/app/management/cupboard";
+  const isQRManagementPage = location.pathname === "/app/management/qr";
+  
 
   return (
     <Box sx={{ display: "flex" }}>
@@ -32,18 +39,22 @@ export default function MainLayout({
             width: "100%",
             bgcolor: "#fff",
             borderRadius: "35px",
-            p: isSmallScreen ? 3 : isMediumScreen ? 4 : 6,
+            px: isSmallScreen ? 3 : isMediumScreen ? 4 : 6,
+            pt: isSmallScreen ? 3 : isMediumScreen ? 4 : 6,
+            pb: isCBManagementPage || isQRManagementPage ? 1 : 6,
             minHeight: "100%",
             boxSizing: "border-box",
             height: "auto",
           }}
         >
-          {/* 💡 Important: ส่ง context ของ props ต่อให้ Outlet */}
-          <Outlet
-            context={{
-              setProfileImage, // ✅ ทำให้ Outlet สามารถใช้ได้
-            }}
-          />
+          {/* ✅ ครอบ Outlet ด้วย SlotProvider */}
+          <SlotProvider>
+            <Outlet
+              context={{
+                setProfileImage,
+              }}
+            />
+          </SlotProvider>
         </Box>
       </Box>
     </Box>

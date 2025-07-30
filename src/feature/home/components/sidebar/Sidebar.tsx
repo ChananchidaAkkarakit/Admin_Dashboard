@@ -1,7 +1,6 @@
 import { useState } from "react";
 import {
   Box,
-
   Typography,
   List,
   IconButton,
@@ -139,10 +138,11 @@ export default function Sidebar({ profileImage }: SidebarProps) {
         }}
       >
         <SidebarNavItem
-          to="/app"
+          to="/app/home"
           icon={<HomeIcon style={{ width: 40, height: 40 }} />}
           label="Home"
         />
+
         <SidebarNavItem
           to="/app/monitoring"
           icon={<MonitoringIcon style={{ width: 40, height: 40 }} />}

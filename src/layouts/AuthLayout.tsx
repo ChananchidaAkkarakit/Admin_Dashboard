@@ -1,10 +1,10 @@
-import { 
-  Paper, 
-  Box, 
-  Typography, 
-  Grid, 
-  useTheme, 
-  useMediaQuery 
+import {
+  Paper,
+  Box,
+  Typography,
+  Grid,
+  useTheme,
+  useMediaQuery
 } from "@mui/material";
 import LogoIcon from "../assets/icons/droppoint-illustration.svg?react";
 import LogoIconbg from "../assets/icons/droppoint-bg.svg?react";
@@ -23,7 +23,7 @@ export default function AuthLayout() {
   else if (isSm) iconSize = 350;
 
   return (
-    <Box sx={{ width: "100vw", height: "100vh", backgroundColor: "#D6E4EF", px:10}}>
+    <Box sx={{ width: "100vw", height: "100vh", backgroundColor: "#D6E4EF", px: 10 }}>
       <Grid container sx={{ width: "100%", height: "100%" }}>
         {/* จอใหญ่ (md) */}
         <Grid

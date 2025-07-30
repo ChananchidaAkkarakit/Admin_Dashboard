@@ -1,5 +1,5 @@
 import { List, ListItemButton, ListItemText, Box } from "@mui/material";
-import ArrowIcon from "../../../assets/icons/arrow-outlined.svg?react";
+import ArrowIcon from "../../../../assets/icons/arrow-outlined.svg?react";
 import { useNavigate } from "react-router-dom";
 
 export default function ManagementList() {
@@ -16,7 +16,7 @@ export default function ManagementList() {
       sx={{
         borderRadius: 2,
         width: "100%",
-        maxWidth: "668px",
+        //maxWidth: "668px",
         mx: "auto",
       }}
     >

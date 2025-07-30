@@ -29,7 +29,7 @@ export default function NotificationToggle({
         p: 2,
         display: "flex",
         alignItems: "center",
-        height: {md:75, xs:"auto"},
+        height: { md: 75, xs: "auto" },
         gap: 2,
         mb: 1,
         // px:3,

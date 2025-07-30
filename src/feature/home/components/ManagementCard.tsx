@@ -65,7 +65,7 @@ export default function ManagementCard({ active }: { active: boolean }) {
       <Typography
         variant="h6"
         fontWeight="bold"
-        fontSize="clamp(10px, 5vw, 32px)"
+        fontSize="clamp(5px, 4vw, 32px)"
         color="#133E87"
       >
         Management
