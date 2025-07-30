@@ -143,18 +143,26 @@ export default function AppRouter() {
                 />
               </QRCodeProvider>
             } />
-            <Route path="notification" element={<NotificationPage
-              setIsLoggedIn={setIsLoggedIn}
-              profileImage={profileImage}
-              setProfileImage={setProfileImage}
-            />} />
-            <Route path="notification/add" element={<NotificationAddPage
-            />} />
-            <Route path="notification/edit/:id" element={<NotificationEditPage 
-                          setIsLoggedIn={setIsLoggedIn}
-              profileImage={profileImage}
-              setProfileImage={setProfileImage}
-            />} />
+            <Route path="notification" element={
+              <NotificationPage
+                setIsLoggedIn={setIsLoggedIn}
+                profileImage={profileImage}
+                setProfileImage={setProfileImage}
+              />} />
+            <Route path="notification/add" element={
+              <NotificationAddPage
+                setIsLoggedIn={setIsLoggedIn}
+                profileImage={profileImage}
+                setProfileImage={setProfileImage}
+              />}
+            />
+            <Route path="notification/edit/:id" element={
+              <NotificationEditPage
+                setIsLoggedIn={setIsLoggedIn}
+                profileImage={profileImage}
+                setProfileImage={setProfileImage}
+              />}
+            />
 
           </Route>
         </Route>

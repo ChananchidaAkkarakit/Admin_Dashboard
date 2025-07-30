@@ -13,6 +13,7 @@ import {
     DialogTitle
 } from "@mui/material";
 import type { Notification } from "../../../../../../backend/src/mock/types";
+import { useNavigate } from "react-router-dom";
 
 // ✅ เพิ่ม type นี้ใน NotificationForm.tsx
 // NotificationForm.tsx (final props type)
@@ -50,7 +51,7 @@ export default function NotificationForm({
     const [logOpen, setLogOpen] = useState(false);
     const [logs, setLogs] = useState<string[]>([]);
     const [formValues, setFormValues] = useState<NotificationFormValues>(defaultValues);
-
+    const navigate = useNavigate(); // ⬅️ ใช้ navigate
     useEffect(() => {
         if (initialData && mode === "edit") {
             const merged = { ...defaultValues, ...initialData };
@@ -297,10 +298,77 @@ export default function NotificationForm({
                     <MenuItem value="off">Off</MenuItem>
                 </TextField> */}
             </Box>
-            {mode === "add" ? (
-                <Button variant="contained" onClick={handleSubmit}>
-                    Add Notification
-                </Button>
+{mode === "add" ? (
+ <Box sx={{ display: "flex", justifyContent: "space-between",mt:3, px: 5 }}>
+
+        <Button
+      variant="outlined"
+      onClick={() => setFormValues(defaultValues)}
+                        sx={{
+                            borderRadius: "25px",
+                            fontSize: "18px",
+                            fontWeight: "bold",
+                            px: 6,
+                            py: 1.2,
+                            textTransform: "none",
+                            borderColor: "#D32F2F",
+                            color: "#D32F2F",
+                            ml: 2,
+                            "&:hover": {
+                                backgroundColor: "#fddede",
+                                borderColor: "#D32F2F",
+                            },
+                        }}
+                    >
+      Reset
+    </Button>
+    <Button
+      variant="outlined"
+      onClick={() => navigate(-1)}
+      sx={{
+        borderRadius: "25px",
+        fontSize: "18px",
+        fontWeight: "bold",
+        px: 6,
+        py: 1.2,
+        textTransform: "none",
+        borderColor: "#D32F2F",
+        color: "#D32F2F",
+        "&:hover": {
+          backgroundColor: "#fddede",
+          borderColor: "#D32F2F",
+        },
+      }}
+    >
+      Cancel
+    </Button>
+
+    <Button
+      variant="contained"
+      onClick={handleSubmit}
+      sx={{
+        borderRadius: "25px",
+        fontSize: "18px",
+        fontWeight: "bold",
+        px: 6,
+        py: 1.2,
+        textTransform: "none",
+        backgroundColor: "#133E87",
+        color: "#fff",
+        boxShadow: "0 3px 6px rgba(0, 0, 0, 0.2)",
+        "&:hover": {
+          backgroundColor: "#0f2f6b",
+          boxShadow: "0 4px 10px rgba(0, 0, 0, 0.3)",
+        },
+        "&:active": {
+          transform: "scale(0.98)",
+          boxShadow: "0 2px 5px rgba(0, 0, 0, 0.2)",
+        },
+      }}
+    >
+      Add
+    </Button>
+                </Box>
             ) : (
                 <Box sx={{ display: "flex", justifyContent: "space-between", mt: 5, px: 2, flexWrap: "wrap", gap: 2 }}>
                     <Button
@@ -308,7 +376,7 @@ export default function NotificationForm({
                         color="error"
                         onClick={() => setFormValues(prevValues)}
                         disabled={JSON.stringify(formValues) === JSON.stringify(prevValues)}
-                                            sx={{
+                        sx={{
                             borderRadius: "25px",
                             fontSize: "18px",
                             fontWeight: "bold",
@@ -349,13 +417,14 @@ export default function NotificationForm({
                             }
                         }}
                         disabled={JSON.stringify(formValues) === JSON.stringify(prevValues)}
-                                            sx={{
+                        sx={{
                             borderRadius: "25px",
                             fontSize: "18px",
                             fontWeight: "bold",
                             px: 7,
                             py: 0.5,
-                            textTransform: "none",}}>
+                            textTransform: "none",
+                        }}>
                         Apply
                     </Button>
 
@@ -363,7 +432,7 @@ export default function NotificationForm({
                         variant="outlined"
                         color="secondary"
                         onClick={() => setLogOpen(true)}
-                                            sx={{
+                        sx={{
                             borderRadius: "25px",
                             fontSize: "18px",
                             fontWeight: "bold",
