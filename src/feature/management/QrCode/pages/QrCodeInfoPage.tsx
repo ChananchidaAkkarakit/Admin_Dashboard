@@ -17,7 +17,7 @@ import {
 import ArrowBackIcon from "../../../../assets/icons/arrow-back.svg?react";
 import SideProfilePanel from "../../../home/components/SideProfilePanel";
 import { useQRCodeContext } from ".././contexts/QRCodeContext";
-import type { QRCodeSlot } from "../contexts/QRCodeContext";
+import type { EnrichedQRCodeSlot as QRCodeSlot } from "../../../../../../backend/src/mock/types";
 import axios from "axios";
 
 

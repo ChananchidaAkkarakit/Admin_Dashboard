@@ -8,7 +8,7 @@ import SideProfilePanel from "../../../home/components/SideProfilePanel";
 import ArrowBackIcon from "../../../../assets/icons/arrow-back.svg?react";
 import SearchBar from "../../../../components/SearchBar";
 import AddIcon from "../../../../assets/icons/add.svg?react";
-
+//import type { EnrichedQRCodeSlot as QRCodeSlot } from "../../../../../../backend/src/mock/types";
 // ที่บนสุดของ QrCodePage.tsx
 type QrCodePageProps = {
   setIsLoggedIn: React.Dispatch<React.SetStateAction<boolean>>;

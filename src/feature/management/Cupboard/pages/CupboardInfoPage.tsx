@@ -223,7 +223,7 @@ export default function CupboardInfoPage({
                         <Autocomplete
                             options={teacherList} getOptionLabel={(option) => `${option.id}            | ${option.name}`}
                             value={teacherList.find((t) => t.id === pendingTeacher) || null}
-                            onChange={(e, newValue) => { if (newValue) { setPendingTeacher(newValue.id); } }}
+                            onChange={(_, newValue) => { if (newValue) { setPendingTeacher(newValue.id); } }}
                             renderInput={(params) => (
                                 <TextField
                                     {...params}

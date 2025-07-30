@@ -1,6 +1,11 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import type { QRCodeSlot } from "../../../../../../backend/src/mock/types"; // ปรับ path ให้ถูกต้อง
+import type { EnrichedQRCodeSlot } from "../../../../../../backend/src/mock/types";
+
+export type QRCodeSlot = EnrichedQRCodeSlot; // ✅ alias ให้ context ใช้ QRCodeSlot ที่ enriched
+
+
+
 import { fetchQRCodes } from "../../../../api/qrcodes";
 
 type QRCodeContextType = {
@@ -12,7 +17,8 @@ type QRCodeContextType = {
 const QRCodeContext = createContext<QRCodeContextType | undefined>(undefined);
 
 export const QRCodeProvider = ({ children }: { children: ReactNode }) => {
-  const [slots, setSlots] = useState<QRCodeSlot[]>([]);
+ const [slots, setSlots] = useState<QRCodeSlot[]>([]);
+
 
   useEffect(() => {
     const load = async () => {

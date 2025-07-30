@@ -4,7 +4,6 @@ import {
   Box,
   Typography,
   IconButton,
-  Divider,
 } from "@mui/material";
 import SideProfilePanel from "../../../home/components/SideProfilePanel";
 import ArrowBackIcon from "../../../../assets/icons/arrow-back.svg?react";
@@ -46,7 +45,7 @@ export default function NotificationPage({
     getData();
   }, []);
   //console.log("Fetched items:", items);  // 🐛 ดู structure ที่ fetch มา
-const [initialData, setInitialData] = useState<Notification | null>(null);
+//const [initialData, setInitialData] = useState<Notification | null>(null);
 
   const filteredItems = items.filter((item) =>
     item.messageName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -55,65 +54,65 @@ const [initialData, setInitialData] = useState<Notification | null>(null);
 
   const adminNotifications = filteredItems.filter((item) => item.source === "admin");
   const systemNotifications = filteredItems.filter((item) => item.source === "system");
-  const uncategorized = filteredItems.filter(
-    (item) => item.source !== "admin" && item.source !== "system"
-  );
+  // const uncategorized = filteredItems.filter(
+  //   (item) => item.source !== "admin" && item.source !== "system"
+  // );
 
-  const renderNotificationCard = (item: Notification) => (
-    <Box
-      key={item.messageId}
-      sx={{
-        border: "2px solid #E3ECF5",
-        borderRadius: "15px",
-        overflow: "hidden",
-        width: "100%",
-        maxWidth: 500,
-        mb: 1.5,
-      }}
-    >
-      <Box sx={{ bgcolor: "#E3ECF5", px: 2, py: 1 }}>
-        <Typography fontWeight="bold" fontSize={14} color="primary">
-          {item.messageName}
-        </Typography>
-      </Box>
+  // const renderNotificationCard = (item: Notification) => (
+  //   <Box
+  //     key={item.messageId}
+  //     sx={{
+  //       border: "2px solid #E3ECF5",
+  //       borderRadius: "15px",
+  //       overflow: "hidden",
+  //       width: "100%",
+  //       maxWidth: 500,
+  //       mb: 1.5,
+  //     }}
+  //   >
+  //     <Box sx={{ bgcolor: "#E3ECF5", px: 2, py: 1 }}>
+  //       <Typography fontWeight="bold" fontSize={14} color="primary">
+  //         {item.messageName}
+  //       </Typography>
+  //     </Box>
 
-      <Divider sx={{ my: 0 }} />
+  //     <Divider sx={{ my: 0 }} />
 
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          px: 2,
-          py: 1.5,
-          justifyContent: "space-between",
-        }}
-      >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <Box
-            sx={{
-              width: 10,
-              height: 10,
-              borderRadius: "50%",
-              bgcolor:
-                item.type === "error"
-                  ? "error.main"
-                  : item.type === "warning"
-                    ? "warning.main"
-                    : item.type === "success"
-                      ? "success.main"
-                      : "info.main",
-            }}
-          />
-          <Typography fontSize={14} color="text.primary">
-            {item.message}
-          </Typography>
-        </Box>
-        <IconButton size="small">
-          <ChevronRightIcon fontSize="small" />
-        </IconButton>
-      </Box>
-    </Box>
-  );
+  //     <Box
+  //       sx={{
+  //         display: "flex",
+  //         alignItems: "center",
+  //         px: 2,
+  //         py: 1.5,
+  //         justifyContent: "space-between",
+  //       }}
+  //     >
+  //       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+  //         <Box
+  //           sx={{
+  //             width: 10,
+  //             height: 10,
+  //             borderRadius: "50%",
+  //             bgcolor:
+  //               item.type === "error"
+  //                 ? "error.main"
+  //                 : item.type === "warning"
+  //                   ? "warning.main"
+  //                   : item.type === "success"
+  //                     ? "success.main"
+  //                     : "info.main",
+  //           }}
+  //         />
+  //         <Typography fontSize={14} color="text.primary">
+  //           {item.message}
+  //         </Typography>
+  //       </Box>
+  //       <IconButton size="small">
+  //         <ChevronRightIcon fontSize="small" />
+  //       </IconButton>
+  //     </Box>
+  //   </Box>
+  // );
 
   return (
     <Box
