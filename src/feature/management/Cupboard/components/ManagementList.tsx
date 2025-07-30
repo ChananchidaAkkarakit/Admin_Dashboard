@@ -20,7 +20,7 @@ export default function ManagementList() {
         mx: "auto",
       }}
     >
-      <List sx={{ mt: 1 }}>
+      <List sx={{ mt: 0 }}>
         {items.map(({ label, path }) => (
           <ListItemButton
             key={label}
@@ -29,7 +29,7 @@ export default function ManagementList() {
               bgcolor: "#fff",
               border: "2px solid #CBDCEB",
               borderRadius: "35px",
-              mb: 2.5,
+              mb: 2,
               boxShadow: "0 2px 8px 0 rgba(18, 42, 66, 0.04)",
               transition: "all 0.15s",
               "&:hover": {
