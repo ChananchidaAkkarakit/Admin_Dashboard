@@ -1,5 +1,6 @@
-import { connect, MqttClient } from "mqtt";
-import type { IClientOptions } from "mqtt";
+// src/lib/mqtt.ts
+import mqtt from "mqtt";                          // ⬅️ ใช้ default import
+import type { IClientOptions, MqttClient } from "mqtt";
 
 let client: MqttClient | null = null;
 
@@ -16,8 +17,12 @@ export function ensureMqtt(): MqttClient {
     reconnectPeriod: 2000,
     connectTimeout: 20_000,
     protocolVersion: 5,
+    properties: {
+      requestResponseInformation: true,
+      requestProblemInformation: true,
+    },
   };
 
-  client = connect(url, options);
+  client = mqtt.connect(url, options);            // ⬅️ เรียกผ่าน default import
   return client!;
 }

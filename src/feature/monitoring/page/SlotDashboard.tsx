@@ -11,7 +11,8 @@ import {
   Chip,
   Divider,
   CardActionArea,
-
+  Button,
+  Stack,
 } from "@mui/material";
 import ArrowBackIcon from "../../../assets/icons/arrow-back.svg?react";
 import BoxIcon from "../../../assets/icons/box.svg?react";
@@ -20,10 +21,7 @@ import InboxIcon from "../../../assets/icons/inbox.svg?react";
 import CheckIcon from "../../../assets/icons/checkmark.svg?react";
 import WiFiIcon from "../../../assets/icons/wifi.svg?react";
 import { supabase } from "../../../supabaseClient";
-import { Fullscreen } from "@mui/icons-material";
-import { Button, Stack } from "@mui/material"; // เพิ่ม
-import { useMqtt } from "../../../hooks/useMqtt"; // เพิ่ม
-
+import { useMqtt } from "../../../hooks/useMqtt";
 
 // ตารางใน Supabase (แก้ชื่อได้ตรงนี้)
 const TBL = {
@@ -49,7 +47,6 @@ type SlotRow = {
   last_sensor_at?: string | null;
   last_seen_at?: string | null;
 };
-
 
 type LoginLog = {
   id: string | number;
@@ -78,34 +75,15 @@ export default function SlotDashboard() {
   const [slot, setSlot] = useState<SlotRow | null>(null);
   const [loginHistory, setLoginHistory] = useState<LoginLog[]>([]);
   const [activationHistory, setActivationHistory] = useState<ActivationLog[]>([]);
+
   // helper: แปลง state เป็นข้อความ/สี
   const isOpen = !!slot?.is_open;
   const usageText = isOpen ? "On" : "Off";
   const usageColor = isOpen ? "#39B129" : "#B21B1B";
 
-  // ปุ่มกดเพื่อสลับเปิด/ปิด (optimistic UI)
-  async function onToggleOpen() {
-    if (!slot) return;
-    const next = !isOpen;
+  // (ใหม่) state ระหว่างส่งคำสั่ง
+  const [sending, setSending] = useState<"open" | "close" | null>(null);
 
-    // optimistic
-    setSlot({ ...slot, is_open: next });
-
-    try {
-      const { error } = await supabase
-        .from(TBL.slots)
-        .update({ is_open: next })
-        .eq("slot_id", slot.slot_id)
-        .select()
-        .single();
-
-      if (error) throw error;
-    } catch (e) {
-      // rollback ถ้า error
-      setSlot({ ...slot, is_open: !next });
-      console.error("toggle open failed:", e);
-    }
-  }
   // state ที่อาจถูกส่งมาจากหน้ารายการ (ไว้ fallback ให้จอไม่ว่าง)
   const fromState = useMemo(() => {
     const s = location.state as Partial<{
@@ -121,15 +99,62 @@ export default function SlotDashboard() {
 
   // ดึงจาก DB เป็นหลัก, ถ้ายังไม่โหลดเสร็จ ใช้ location.state ชั่วคราว
   const cupboardId =
-    slot?.cupboard_id ||
-    (fromState?.cupboardId as string | undefined);
+    slot?.cupboard_id || (fromState?.cupboardId as string | undefined);
 
-  const statusTopic = cupboardId && slotId ? `smartlocker/${cupboardId}/slot/${slotId}/status` : null;
-  const commandTopic = cupboardId && slotId ? `smartlocker/${cupboardId}/slot/${slotId}/command` : null;
+  // MQTT topics (ใช้ cupboard_id + slot_id)
+  const statusTopic =
+    cupboardId && slotId
+      ? `smartlocker/${cupboardId}/slot/${slotId}/status`
+      : null;
+  const commandTopic =
+    cupboardId && slotId
+      ? `smartlocker/${cupboardId}/slot/${slotId}/command`
+      : null;
 
-  const { status: mqttStatus, publish, onMessage } = useMqtt(statusTopic ? [statusTopic] : []);
+  // สมัคร MQTT แบบ dynamic ตาม topic ที่พร้อม
+  const { status: mqttStatus, publish, onMessage } = useMqtt(
+    statusTopic ? [statusTopic] : []
+  );
 
+  // ฟังสถานะจากอุปกรณ์ → อัปเดต UI
+  useEffect(() => {
+    if (!statusTopic) return;
+    const unsubscribe = onMessage((topic, payload) => {
+      if (topic !== statusTopic) return;
+      setSlot((prev) => {
+        const base =
+          prev ?? {
+            slot_id: slotId!,
+            cupboard_id: cupboardId!,
+            connection_status: "active",
+            capacity: null,
+            is_open: false,
+            sensor_status: "unknown",
+            wifi_status: "unknown",
+          };
+        return {
+          ...base,
+          is_open: payload?.door ? payload.door === "open" : base.is_open,
+          capacity:
+            typeof payload?.capacity === "number" ? payload.capacity : base.capacity,
+          sensor_status: payload?.sensor_status ?? base.sensor_status,
+          wifi_status: payload?.wifi_status ?? base.wifi_status,
+          wifi_rssi:
+            typeof payload?.wifi_rssi === "number"
+              ? payload.wifi_rssi
+              : base.wifi_rssi,
+          ip_addr: payload?.ip_addr ?? base.ip_addr,
+          last_seen_at: payload?.ts
+            ? new Date(payload.ts).toISOString()
+            : base.last_seen_at,
+        };
+      });
+    });
+    return () => unsubscribe();  // ✅ cleanup เป็นฟังก์ชันเสมอ
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusTopic]);
 
+  // โหลดข้อมูลหลักจาก Supabase
   useEffect(() => {
     let active = true;
 
@@ -142,19 +167,21 @@ export default function SlotDashboard() {
         // ---------- SLOT ----------
         const { data: slotData, error: slotErr } = await supabase
           .from(TBL.slots)
-          .select(`
-    slot_id,
-    cupboard_id,
-    connection_status,
-    capacity,
-    is_open,
-    sensor_status,
-    wifi_status,
-    wifi_rssi,
-    ip_addr,
-    last_sensor_at,
-    last_seen_at
-  `)
+          .select(
+            `
+            slot_id,
+            cupboard_id,
+            connection_status,
+            capacity,
+            is_open,
+            sensor_status,
+            wifi_status,
+            wifi_rssi,
+            ip_addr,
+            last_sensor_at,
+            last_seen_at
+          `
+          )
           .eq("slot_id", slotId)
           .maybeSingle();
 
@@ -164,7 +191,8 @@ export default function SlotDashboard() {
           ? {
             slot_id: (slotData as any).slot_id,
             cupboard_id: (slotData as any).cupboard_id ?? "-",
-            connection_status: (slotData as any).connection_status ?? "online",
+            connection_status:
+              (slotData as any).connection_status ?? "online",
             capacity: (slotData as any).capacity ?? null,
             is_open: (slotData as any).is_open ?? false,
 
@@ -177,7 +205,6 @@ export default function SlotDashboard() {
             last_seen_at: (slotData as any).last_seen_at ?? null,
           }
           : null;
-
 
         // ---------- LOGIN HISTORY (optional) ----------
         let loginData: any[] = [];
@@ -193,7 +220,6 @@ export default function SlotDashboard() {
             if (error) throw error;
             loginData = data ?? [];
           } catch (e: any) {
-            // ถ้าไม่มีตาราง/คอลัมน์ ให้เงียบไว้และใช้ []
             if (!(e?.code === "42P01" || /does not exist/i.test(e?.message))) {
               throw e;
             }
@@ -228,7 +254,8 @@ export default function SlotDashboard() {
           mappedSlot ?? {
             slot_id: slotId,
             cupboard_id: (location.state as any)?.cupboardId ?? "-",
-            connection_status: (location.state as any)?.connectionStatus ?? "online",
+            connection_status:
+              (location.state as any)?.connectionStatus ?? "online",
             sensor_status: (location.state as any)?.sensorStatus ?? "ok",
             wifi_status: (location.state as any)?.wifiStatus ?? "connected",
             capacity: (location.state as any)?.capacity ?? null,
@@ -252,20 +279,57 @@ export default function SlotDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slotId]);
 
-  const capacityText = slot?.capacity != null ? `${slot.capacity} / 100` : "—";
-
   // ✅ แปลงค่าจาก DB -> เปอร์เซ็นต์ 0–100 อย่างปลอดภัย
+  const capacityText = slot?.capacity != null ? `${slot.capacity} / 100` : "—";
   const progress = useMemo(() => {
     const n = Number(slot?.capacity);
-    if (!Number.isFinite(n)) return 0;              // null/NaN -> 0
+    if (!Number.isFinite(n)) return 0; // null/NaN -> 0
     return Math.max(0, Math.min(100, Math.round(n))); // clamp 0..100
   }, [slot?.capacity]);
+
+  // ส่งคำสั่งไปอุปกรณ์ + log + sync DB (ออปชั่น)
+  async function sendCommand(action: "open" | "close") {
+    if (!slot || !commandTopic) return;
+    setSending(action);
+
+    // ส่งคำสั่งไปอุปกรณ์
+    publish(commandTopic, { action, by: "web-ui", slotId, ts: Date.now() });
+
+    // Optimistic UI
+    setSlot((s) => (s ? { ...s, is_open: action === "open" } : s));
+
+    // (ออปชั่น) บันทึกลง activation_logs
+    try {
+      await supabase.from("activation_logs").insert({
+        slot_id: slot.slot_id,
+        action,
+        cause: "manual",
+        metadata: { via: "web-ui" },
+      });
+    } catch {
+      /* ignore */
+    }
+
+    // (ออปชั่น) Sync fields สำคัญของ slots
+    try {
+      await supabase
+        .from("slots")
+        .update({
+          is_open: action === "open",
+          last_open_at: action === "open" ? new Date().toISOString() : null,
+        })
+        .eq("slot_id", slot.slot_id);
+    } catch {
+      /* ignore */
+    } finally {
+      setSending(null);
+    }
+  }
 
   return (
     <Box
       sx={{
         display: "flex",
-        // แก้ md: "none" -> "column" (ไม่เปลี่ยน UI แต่ถูกต้องตาม CSS)
         flexDirection: { xs: "column", sm: "column", md: "column", lg: "row" },
         width: "100%",
       }}
@@ -288,16 +352,12 @@ export default function SlotDashboard() {
             mb: 3,
             mx: 2,
             borderBottomWidth: 2,
-            borderColor: "#CBDCEB"
+            borderColor: "#CBDCEB",
           }}
         />
+
         {/* ชื่อ Slot */}
-        <Box
-          mt={1}
-          mb={2}
-          display="flex"
-          justifyContent="center"
-        >
+        <Box mt={1} mb={2} display="flex" justifyContent="center">
           <Typography
             variant="h5"
             fontWeight={800}
@@ -327,16 +387,16 @@ export default function SlotDashboard() {
                 <Card
                   sx={{
                     borderRadius: 15,
-                    background: isOpen ? "#D6E4EF" : "white",      // เปลี่ยนพื้นตามสถานะ
+                    background: isOpen ? "#D6E4EF" : "white",
                     border: "1px solid #D6E4EF",
                   }}
                 >
+                  {/* เดิมเป็น CardActionArea toggle; ตอนนี้ใช้ปุ่ม Open/Close แทน */}
                   <CardActionArea
-                    onClick={!isOpen ? onToggleOpen : undefined} // ล็อกเมื่อเปิดแล้ว
-                    disabled={isOpen}                            // ป้องกันโฟกัส/กดซ้ำ
+                    disabled
                     sx={{
                       borderRadius: 15,
-                      cursor: isOpen ? "default" : "pointer",
+                      cursor: "default",
                     }}
                   >
                     <CardContent
@@ -353,7 +413,7 @@ export default function SlotDashboard() {
                             width: 55,
                             height: 55,
                             borderRadius: "50%",
-                            background: isOpen ? "#ffffff" : "#D6E4EF", // วงกลมหลังไอคอน
+                            background: isOpen ? "#ffffff" : "#D6E4EF",
                             display: "grid",
                             placeItems: "center",
                             fontSize: 22,
@@ -362,21 +422,61 @@ export default function SlotDashboard() {
                           <BoxIcon height={30} width={30} color="#133E87" />
                         </Box>
                         <Box>
-                          <Typography fontWeight={700} fontSize={20} fontStyle="italic" color="#133E87">
+                          <Typography
+                            fontWeight={700}
+                            fontSize={20}
+                            fontStyle="italic"
+                            color="#133E87"
+                          >
                             Cupboard Usage Status
                           </Typography>
                           <Typography color="#133E87">Status : {usageText}</Typography>
+                          <Typography color="#133E87" sx={{ mt: 0.5, fontSize: 12 }}>
+                            MQTT: {mqttStatus}{" "}
+                            {cupboardId ? `• cupboard_id: ${cupboardId}` : "• loading cupboard_id..."}
+                          </Typography>
                         </Box>
                       </Box>
+
+                      <Stack direction="row" spacing={1} sx={{ mr: 2 }}>
+                        <Button
+                          variant="contained"
+                          size="small"
+                          disabled={
+                            mqttStatus !== "connected" ||
+                            sending !== null ||
+                            isOpen ||
+                            !cupboardId ||
+                            slot?.wifi_status === "disconnected"
+                          }
+                          onClick={() => sendCommand("open")}
+                        >
+                          {sending === "open" ? "Opening..." : "Open"}
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          disabled={
+                            mqttStatus !== "connected" ||
+                            sending !== null ||
+                            !isOpen ||
+                            !cupboardId ||
+                            slot?.wifi_status === "disconnected"
+                          }
+                          onClick={() => sendCommand("close")}
+                        >
+                          {sending === "close" ? "Closing..." : "Close"}
+                        </Button>
+                      </Stack>
 
                       <Chip
                         label=" "
                         sx={{
                           width: 20,
                           height: 20,
-                          mr: 4,
+                          mr: 1,
                           borderRadius: "50%",
-                          bgcolor: usageColor, // success.main เมื่อเปิด, error.main เมื่อปิด
+                          bgcolor: usageColor,
                         }}
                       />
                     </CardContent>
@@ -384,8 +484,10 @@ export default function SlotDashboard() {
                 </Card>
               </Grid>
 
-              <Grid item xs={12} md={4} >
-                <Card sx={{ borderRadius: 15, px: 2, background: "white", border: "1px solid #D6E4EF" }}>
+              <Grid item xs={12} md={4}>
+                <Card
+                  sx={{ borderRadius: 15, px: 2, background: "white", border: "1px solid #D6E4EF" }}
+                >
                   <CardContent
                     sx={{
                       display: "flex",
@@ -396,17 +498,21 @@ export default function SlotDashboard() {
                     }}
                   >
                     <Box>
-                      <Typography fontWeight={700} fontSize={20} fontStyle="italic" color="#133E87">
+                      <Typography
+                        fontWeight={700}
+                        fontSize={20}
+                        fontStyle="italic"
+                        color="#133E87"
+                      >
                         Sensor
                       </Typography>
                       <Typography color="#133E87">
-                        Status : {
-                          (slot?.sensor_status ?? "unknown") === "error"
-                            ? "Error"
-                            : (slot?.sensor_status ?? "unknown") === "ok"
-                              ? "Normal"
-                              : "Error" // ✅ unknown = Error
-                        }
+                        Status :{" "}
+                        {(slot?.sensor_status ?? "unknown") === "error"
+                          ? "Error"
+                          : (slot?.sensor_status ?? "unknown") === "ok"
+                            ? "Normal"
+                            : "Error" /* unknown = Error */}
                       </Typography>
                     </Box>
 
@@ -414,10 +520,9 @@ export default function SlotDashboard() {
                       {slot?.sensor_status === "ok" ? (
                         <CheckIcon width={35} height={35} color="#39B129" />
                       ) : (
-                        <ErrorIcon width={35} height={35} color="#B21B1B" /> // ✅ error & unknown = สีแดง
+                        <ErrorIcon width={35} height={35} color="#B21B1B" />
                       )}
                     </Box>
-
                   </CardContent>
                 </Card>
               </Grid>
@@ -425,7 +530,7 @@ export default function SlotDashboard() {
 
             {/* แถวสอง: Wi-Fi / Capacity + Login History */}
             <Grid container spacing={10} sx={{ px: { xs: 0, md: 10 } }}>
-              <Grid item xs={12} md={4}  >
+              <Grid item xs={12} md={4}>
                 {/* Wi-Fi */}
                 <Card
                   sx={{
@@ -437,26 +542,28 @@ export default function SlotDashboard() {
                   }}
                 >
                   <CardContent>
-                    <Typography fontWeight={700} fontSize={20} fontStyle="italic" color="#133E87">
+                    <Typography
+                      fontWeight={700}
+                      fontSize={20}
+                      fontStyle="italic"
+                      color="#133E87"
+                    >
                       Wi-Fi
                       <WiFiIcon
                         style={{
                           color:
-                            slot?.wifi_status === "connected"
-                              ? "#39B129" // เขียวเมื่อ connect
-                              : "#B21B1B", // แดงเมื่อ disconnect หรือ unknown
+                            slot?.wifi_status === "connected" ? "#39B129" : "#B21B1B",
                           marginLeft: 10,
                         }}
                       />
                     </Typography>
                     <Typography color="#133E87">
-                      Status : {
-                        (slot?.wifi_status ?? "unknown") === "connected"
-                          ? "Connect"
-                          : (slot?.wifi_status ?? "unknown") === "disconnected"
-                            ? "Disconnect"
-                            : "Unknown"
-                      }
+                      Status :{" "}
+                      {(slot?.wifi_status ?? "unknown") === "connected"
+                        ? "Connect"
+                        : (slot?.wifi_status ?? "unknown") === "disconnected"
+                          ? "Disconnect"
+                          : "Unknown"}
                     </Typography>
 
                     {/* ถ้าจะโชว์ RSSI */}
@@ -464,7 +571,6 @@ export default function SlotDashboard() {
                       <Typography color="#133E87">RSSI: {slot!.wifi_rssi} dBm</Typography>
                     )}
                   </CardContent>
-
                 </Card>
 
                 {/* Capacity */}
@@ -480,18 +586,20 @@ export default function SlotDashboard() {
                         position: "relative",
                       }}
                     >
-                      <Box sx={{
-                        width: 48,
-                        height: 48,
-                        borderRadius: "20px",
-                        background: "#ffffffff",
-                        display: "grid",
-                        placeItems: "center",
-                        fontSize: 22,
-                        position: "absolute",
-                        top: 5,
-                        right: 5,
-                      }}>
+                      <Box
+                        sx={{
+                          width: 48,
+                          height: 48,
+                          borderRadius: "20px",
+                          background: "#ffffffff",
+                          display: "grid",
+                          placeItems: "center",
+                          fontSize: 22,
+                          position: "absolute",
+                          top: 5,
+                          right: 5,
+                        }}
+                      >
                         <InboxIcon height={25} width={25} color="#608BC1" />
                       </Box>
                       <Box position="relative" display="inline-flex">
@@ -513,7 +621,10 @@ export default function SlotDashboard() {
                         />
                         <Box
                           sx={{
-                            top: 0, left: 0, bottom: 0, right: 0,
+                            top: 0,
+                            left: 0,
+                            bottom: 0,
+                            right: 0,
                             position: "absolute",
                             display: "flex",
                             alignItems: "center",
@@ -526,7 +637,12 @@ export default function SlotDashboard() {
                         </Box>
                       </Box>
                     </Box>
-                    <Typography fontStyle="italic" fontWeight="300" fontSize="18px" color="#133E87">
+                    <Typography
+                      fontStyle="italic"
+                      fontWeight="300"
+                      fontSize="18px"
+                      color="#133E87"
+                    >
                       Capacity
                     </Typography>
                   </CardContent>
@@ -535,7 +651,13 @@ export default function SlotDashboard() {
 
               {/* Login History */}
               <Grid item xs={12} md={8}>
-                <Typography fontStyle="italic" fontWeight="300" fontSize="18px" color="#133E87" mb={1}>
+                <Typography
+                  fontStyle="italic"
+                  fontWeight="300"
+                  fontSize="18px"
+                  color="#133E87"
+                  mb={1}
+                >
                   Login History
                 </Typography>
                 <Card sx={{ borderRadius: 6, overflow: "hidden", border: "1px solid #CBDCEB" }}>
@@ -583,10 +705,19 @@ export default function SlotDashboard() {
                 </Card>
 
                 {/* Activation History */}
-                <Typography fontStyle="italic" fontWeight="300" fontSize="18px" color="#133E87" mt={3} mb={1}>
+                <Typography
+                  fontStyle="italic"
+                  fontWeight="300"
+                  fontSize="18px"
+                  color="#133E87"
+                  mt={3}
+                  mb={1}
+                >
                   Cupboard Activation History
                 </Typography>
-                <Card sx={{ width: "200", borderRadius: 6, overflow: "hidden", border: "1px solid #CBDCEB" }}>
+                <Card
+                  sx={{ width: "200", borderRadius: 6, overflow: "hidden", border: "1px solid #CBDCEB" }}
+                >
                   <Box
                     sx={{
                       display: "grid",

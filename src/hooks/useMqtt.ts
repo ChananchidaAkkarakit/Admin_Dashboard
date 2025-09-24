@@ -1,3 +1,4 @@
+// src/hooks/useMqtt.ts
 import { useEffect, useState } from "react";
 import { ensureMqtt } from "../lib/mqtt";
 
@@ -26,7 +27,6 @@ export function useMqtt(topics: string[] = []) {
       c.off("reconnect", onReconnect);
       c.off("close", onClose);
       c.off("error", onError);
-      // อย่าปิด client ที่ share ใช้หลายหน้า
     };
   }, [topics.join("|")]);
 
@@ -36,7 +36,8 @@ export function useMqtt(topics: string[] = []) {
     c.publish(topic, body, { qos: 1, retain: false });
   };
 
-  const onMessage = (handler: (topic:string, payload:any)=>void) => {
+  // ✅ สำคัญ: รับ handler แล้วคืน "ฟังก์ชันยกเลิก" เท่านั้น
+  const onMessage = (handler: (topic:string, payload:any)=>void): (() => void) => {
     const c = ensureMqtt();
     const cb = (topic: string, buf: Uint8Array) => {
       const text = new TextDecoder().decode(buf);
@@ -45,7 +46,7 @@ export function useMqtt(topics: string[] = []) {
       handler(topic, data);
     };
     c.on("message", cb);
-    return () => c.off("message", cb);
+    return () => { c.off("message", cb); }; // <- cleanup เป็น void
   };
 
   return { status, publish, onMessage };
