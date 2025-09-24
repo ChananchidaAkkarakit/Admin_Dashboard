@@ -1,14 +1,22 @@
+import { useEffect, useMemo, useState } from "react";
+import { Box, Typography, Avatar, Button, Grid } from "@mui/material";
 import NotificationToggle from "../components/NotificationToggle";
-//import NotificationsIcon from "@mui/icons-material/Notifications";
 import LockIcon from "../../../assets/icons/lock.svg?react";
 import ServerIcon from "../../../assets/icons/server.svg?react";
 import CupboardIcon from "../../../assets/icons/box-broken.svg?react";
 import InfaredIcon from "../../../assets/icons/infrared.svg?react";
-import { Box, Typography, Avatar, Button, Grid } from "@mui/material";
-import { useState } from "react";
+import {
+  fetchSettings,
+  saveSettings,
+  ensureUserId,
+  type NotificationSettings,
+} from "../../../api/notificationSettings";
 
 export default function SettingsPage() {
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(true); // ปุ่มภาพรวมซ้าย (ยังไม่ผูก DB ในรอบนี้)
+  const [loading, setLoading] = useState(true);
+
+  // สถานะ toggle ที่โชว์บน UI
   const [toggles, setToggles] = useState({
     cupboardDoor: true,
     connection: false,
@@ -16,103 +24,83 @@ export default function SettingsPage() {
     sensorError: false,
   });
 
+  const cupboardId = "default"; // หรือมาจาก params/selection
+
+  // โหลดค่าจาก Supabase ครั้งแรก
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const s = await fetchSettings(cupboardId);
+      setToggles({
+        cupboardDoor: s.alert_cupboard_door,
+        connection: s.alert_connection,
+        full: s.alert_full,
+        sensorError: s.alert_sensor_error,
+      });
+      setLoading(false);
+    })();
+  }, [cupboardId]);
+
+  // helper: รวม state -> payload สำหรับบันทึก
+  const toPayload = useMemo<NotificationSettings>(() => ({
+    user_id: localStorage.getItem("uid") || "",
+    cupboard_id: cupboardId,
+    alert_cupboard_door: toggles.cupboardDoor,
+    alert_connection: toggles.connection,
+    alert_full: toggles.full,
+    alert_sensor_error: toggles.sensorError,
+  }), [toggles, cupboardId]);
+
+  // กด toggle → อัปเดต UI ทันที (optimistic) → เซฟลง DB
   const handleToggle = (key: keyof typeof toggles) => {
-    setToggles((prev) => ({ ...prev, [key]: !prev[key] }));
+    const next = { ...toggles, [key]: !toggles[key] };
+    setToggles(next);
+
+    // เตรียม payload ใหม่ให้ตรงกับค่า next
+    const payload: NotificationSettings = {
+      ...toPayload,
+      alert_cupboard_door: key === "cupboardDoor" ? !toggles[key] : next.cupboardDoor,
+      alert_connection:    key === "connection"   ? !toggles[key] : next.connection,
+      alert_full:          key === "full"         ? !toggles[key] : next.full,
+      alert_sensor_error:  key === "sensorError"  ? !toggles[key] : next.sensorError,
+    };
+
+    // สร้าง uid ถ้ายังไม่มี (ครั้งแรก)
+    ensureUserId().then(() => saveSettings(payload)).catch((e) => {
+      console.error(e);
+      // ถ้าบันทึกพลาด คุณอาจ rollback UI หรือแสดง snackbar ก็ได้
+    });
   };
 
   return (
-    <Box
-      sx={{
-        //maxWidth: "1200px",
-        //height: "100%"
-        //mx: "auto",
-        //py: 6,
-        //px: { xs: 2, md: 0 },
-      }}
-    >
-      <Typography
-        fontSize="40px"
-        fontWeight={900}
-        fontStyle="italic"
-        color="#133E87"
-        mb={4}
-      >
+    <Box>
+      <Typography fontSize="40px" fontWeight={900} fontStyle="italic" color="#133E87" mb={4}>
         Settings
       </Typography>
 
-      <Grid container spacing={0}>
-        {/* Grid item ฝั่งซ้าย */}
-        <Grid item xs={12} md={2.5} >
+      {/* <Grid container spacing={0}> */}
+        {/* ฝั่งซ้าย - ปุ่ม Cupboard Door (ยังไม่เซฟ DB ในรอบนี้) */}
+        {/* <Grid item xs={12} md={2.5}>
           <Button
-            sx={{
-              bgcolor: isOpen ? "#E8F1FB" : "#E8F1FB",
-              "&:hover": {
-                bgcolor: "#EEEEEE",
-              },
-              borderRadius: "35px",
-              minWidth: 180,
-              width: "80%",
-              //maxWidth: 180,
-              minHeight: 170,
-              maxHeight: 250,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              p: 2,
-              mb: 2,
-              //flexWrap:"wrap"
-            }}
+            sx={{ bgcolor: "#E8F1FB", borderRadius: "35px", minWidth: 180, width: "80%", minHeight: 170, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", p: 2, mb: 2 }}
             onClick={() => setIsOpen((prev) => !prev)}
+            disabled={loading}
           >
-            <Avatar
-              sx={{
-                bgcolor: "#fff",
-                color: "#133E87",
-                width: 70,
-                height: 70,
-                mb: 2,
-                border: "1px solid #CBDCEB",
-              }}
-            >
+            <Avatar sx={{ bgcolor: "#fff", color: "#133E87", width: 70, height: 70, mb: 2, border: "1px solid #CBDCEB" }}>
               <CupboardIcon color="#133E87" style={{ width: 35, height: 35 }} />
             </Avatar>
-            <Typography
-              textTransform="none"
-              fontWeight="bold"
-              color="#133E87"
-              fontSize={18}
-            >
-              Cupboard Door
-            </Typography>
-            <Typography
-              textTransform="none"
-              color={isOpen ? "#2FA620" : "#B21B1B"}
-              fontSize={15}
-            >
+            <Typography fontWeight="bold" color="#133E87" fontSize={18}>Cupboard Door</Typography>
+            <Typography color={isOpen ? "#2FA620" : "#B21B1B"} fontSize={15}>
               {isOpen ? "Open" : "Close"}
             </Typography>
           </Button>
-        </Grid>
+        </Grid> */}
 
-        {/* Grid item ฝั่งขวา */}
+        {/* ฝั่งขวา - Toggle ที่เซฟลง Supabase */}
         <Grid item xs={12} md={9.5}>
-          <Box
-            sx={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 2,
-              width: "auto"
-              //borderRadius: "0px"
-            }}
-          >
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
             <NotificationToggle
-              icon={
-                <LockIcon
-                  color="#133E87"
-                  style={{ width: 30, height: 30 }}
-                />
-              }
+              icon={<LockIcon color="#133E87" style={{ width: 30, height: 30 }} />}
               label="Notification"
               detail="(Cupboard Door)"
               status={toggles.cupboardDoor ? "Status : On" : "Status : Off"}
@@ -120,12 +108,7 @@ export default function SettingsPage() {
               onChange={() => handleToggle("cupboardDoor")}
             />
             <NotificationToggle
-              icon={
-                <ServerIcon
-                  color="#133E87"
-                  style={{ width: 30, height: 30 }}
-                />
-              }
+              icon={<ServerIcon color="#133E87" style={{ width: 30, height: 30 }} />}
               label="Notification"
               detail="(Connection between cupboard and server)"
               status={toggles.connection ? "Status : On" : "Status : Off"}
@@ -133,12 +116,7 @@ export default function SettingsPage() {
               onChange={() => handleToggle("connection")}
             />
             <NotificationToggle
-              icon={
-                <CupboardIcon
-                  color="#133E87"
-                  style={{ width: 30, height: 30 }}
-                />
-              }
+              icon={<CupboardIcon color="#133E87" style={{ width: 30, height: 30 }} />}
               label="Notification"
               detail="(The cupboard is full.)"
               status={toggles.full ? "Status : On" : "Status : Off"}
@@ -146,12 +124,7 @@ export default function SettingsPage() {
               onChange={() => handleToggle("full")}
             />
             <NotificationToggle
-              icon={
-                <InfaredIcon
-                  color="#133E87"
-                  style={{ width: 30, height: 30 }}
-                />
-              }
+              icon={<InfaredIcon color="#133E87" style={{ width: 30, height: 30 }} />}
               label="Notification"
               detail="(Sensor malfunction)"
               status={toggles.sensorError ? "Status : On" : "Status : Off"}
@@ -160,7 +133,7 @@ export default function SettingsPage() {
             />
           </Box>
         </Grid>
-      </Grid>
+      {/* </Grid> */}
     </Box>
   );
 }

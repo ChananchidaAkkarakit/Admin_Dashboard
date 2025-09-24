@@ -182,7 +182,6 @@ export default function UserInfoPage({
                 alignItems: "start",
                 justifyContent: "center",
               }}>
-
                 <Box display="flex" alignItems="center" justifyContent="space-between">
                   {/* Left: Name */}
                   <Box>
@@ -226,47 +225,46 @@ export default function UserInfoPage({
                         checked={checked}
                         onChange={handleChange}
                         sx={{
-                          ml: 3,
+                          ml: 20,
                           justifyContent: "flex-end",
                           width: 75,
                           height: 55,
-                          //border: 10,
                           "& .MuiSwitch-switchBase": {
-                            //margin: 2,
                             padding: 2.2,
                             transform: "translateX(px)",
                             "&.Mui-checked": {
-                              //color: "#fff",
                               transform: "translateX(20px)",
                               "& .MuiSwitch-thumb": {
-                                backgroundColor: checked ? "#fff" : "#fff", // เปลี่ยนสีปุ่ม
+                                backgroundColor: checked ? "#fff" : "#fff",
                               },
                               "& + .MuiSwitch-track": {
-                                backgroundColor: "#39B129", // เปลี่ยนสีแถบพื้นหลังตอนเปิด
+                                backgroundColor: "#39B129",
                                 opacity: 1,
                               },
                             },
                           },
                           "& .MuiSwitch-thumb": {
-                            backgroundColor: "#ffff", // สีปุ่ม
+                            backgroundColor: "#ffff",
                             width: 20,
                             height: 20,
-
                           },
                           "& .MuiSwitch-track": {
                             borderRadius: 20 / 2,
-                            backgroundColor: "#D41E1E", // สีแถบพื้นหลังตอนปิด 90caf9
+                            backgroundColor: "#D41E1E",
                             opacity: 1,
                           },
                         }}
                       />
-                    } sx={{
+                    }
+                    sx={{
                       "& .MuiFormControlLabel-label": {
                         fontSize: "15px",
                         fontWeight: 400,
                         fontStyle: "italic",
                         color: "#133E87",
                       },
+                      display: "flex",
+                      justifyContent: "flex-end",  // <-- ปรับให้ toggle อยู่ขวา
                     }}
                   />
 

@@ -4,7 +4,6 @@ import LoginPage from "../feature/auth/page/LoginPage";
 import AuthLayout from "../layouts/AuthLayout";
 import MainLayout from "../layouts/MainLayout";
 import HomePage from "../feature/home/page/HomePage";
-import MonitoringPage from "../feature/monitoring/page/MonitoringPage";
 import SettingsPage from "../feature/settings/page/SettingsPage";
 import UserInfoPage from "../feature/home/page/UserInfoPage";
 import ManagementList from "../feature/management/Cupboard/components/ManagementList";
@@ -16,9 +15,17 @@ import CupboardInfoPage from "../feature/management/Cupboard/pages/CupboardInfoP
 import { SlotProvider } from "../feature/management/Cupboard/contexts/SlotContext";
 import { QRCodeProvider } from "../feature/management/QrCode/contexts/QRCodeContext";
 import QrCodeInfoPage from "../feature/management/QrCode/pages/QrCodeInfoPage";
-import NotificationAddPage from "../feature/management/Notification/pages/NotificationAddPage";
-import NotificationEditPage from "../feature/management/Notification/pages/NotificationEditPage";
+import AddNotificationPage from "../feature/management/Notification/pages/AddNotificationPage";
+import EditNotificationPage from "../feature/management/Notification/pages/EditNotificationPage";
+import AddSlotPage from "../feature/management/Cupboard/pages/AddSlotPage";
+import MonitoringOverviewPage from "../feature/monitoring/page/MonitoringPage";
+import MonitoringAllItems from "../feature/monitoring/page/MonitoringAllItems";
+import SlotDashboard from "../feature/monitoring/page/SlotDashboard";
 
+// ⬇️ เพิ่ม 3 หน้าใหม่สำหรับ Registration
+import RegistrationSearch from "../feature/home/components/RegistrationSearch"; 
+import TeacherFormPage from "../feature/home/page/TeacherFormPage";
+import StudentFormPage from "../feature/home/page/StudentFormPage";
 
 export default function AppRouter() {
   const [isLoggedIn, setIsLoggedIn] = useState(localStorage.getItem("isLoggedIn") === "true");
@@ -57,10 +64,11 @@ export default function AppRouter() {
         </Route>
 
         {/* 🔓 หลัง Login */}
-        <Route path="/app"
+        <Route
+          path="/app"
           element={
             isLoggedIn ? (
-              <SlotProvider> {/* ✅ ใส่ครอบ MainLayout */}
+              <SlotProvider>
                 <MainLayout
                   profileImage={profileImage}
                   setProfileImage={setProfileImage}
@@ -71,7 +79,6 @@ export default function AppRouter() {
             )
           }
         >
-
           {/* ✅ Redirect จาก /app → /app/home */}
           <Route index element={<Navigate to="/app/home" replace />} />
 
@@ -95,8 +102,16 @@ export default function AppRouter() {
               />
             }
           />
-          <Route path="monitoring" element={<MonitoringPage />} />
+
+          {/* ✅ Monitoring */}
+          <Route path="monitoring">
+            <Route index element={<MonitoringOverviewPage />} />
+            <Route path="items" element={<MonitoringAllItems />} />
+            <Route path="slot/:slotId" element={<SlotDashboard />} />
+          </Route>
+
           <Route path="settings" element={<SettingsPage />} />
+
           <Route
             path="userinfo/:id"
             element={
@@ -108,6 +123,16 @@ export default function AppRouter() {
             }
           />
 
+          {/* 👇 Registration (ใหม่) */}
+          <Route path="registration">
+            {/* /app/registration */}
+            <Route index element={<RegistrationSearch />} />
+            {/* /app/registration/new/teacher */}
+            <Route path="new/teacher" element={<TeacherFormPage />} />
+            {/* /app/registration/new/student */}
+            <Route path="new/student" element={<StudentFormPage />} />
+          </Route>
+
           {/* 👇 Management */}
           <Route path="management">
             <Route index element={<ManagementList />} />
@@ -118,52 +143,83 @@ export default function AppRouter() {
                   setIsLoggedIn={setIsLoggedIn}
                   profileImage={profileImage}
                   setProfileImage={setProfileImage}
-                />} />
-            <Route path="cupboard/:slotId" element={
-              <CupboardInfoPage
-                setIsLoggedIn={setIsLoggedIn}
-                profileImage={profileImage}
-                setProfileImage={setProfileImage}
-              />} />
-            <Route path="qr" element={
-              <QRCodeProvider>
-                <QrCodePage
+                />
+              }
+            />
+            <Route
+              path="cupboard/:slotId"
+              element={
+                <CupboardInfoPage
                   setIsLoggedIn={setIsLoggedIn}
                   profileImage={profileImage}
                   setProfileImage={setProfileImage}
                 />
-              </QRCodeProvider>
-            } />
-            <Route path="qr/:slotId" element={
-              <QRCodeProvider>
-                <QrCodeInfoPage
+              }
+            />
+            <Route
+              path="cupboard/add"
+              element={
+                <AddSlotPage
                   setIsLoggedIn={setIsLoggedIn}
                   profileImage={profileImage}
                   setProfileImage={setProfileImage}
                 />
-              </QRCodeProvider>
-            } />
-            <Route path="notification" element={
-              <NotificationPage
-                setIsLoggedIn={setIsLoggedIn}
-                profileImage={profileImage}
-                setProfileImage={setProfileImage}
-              />} />
-            <Route path="notification/add" element={
-              <NotificationAddPage
-                setIsLoggedIn={setIsLoggedIn}
-                profileImage={profileImage}
-                setProfileImage={setProfileImage}
-              />}
+              }
             />
-            <Route path="notification/edit/:id" element={
-              <NotificationEditPage
-                setIsLoggedIn={setIsLoggedIn}
-                profileImage={profileImage}
-                setProfileImage={setProfileImage}
-              />}
+            <Route
+              path="qr"
+              element={
+                <QRCodeProvider>
+                  <QrCodePage
+                    setIsLoggedIn={setIsLoggedIn}
+                    profileImage={profileImage}
+                    setProfileImage={setProfileImage}
+                  />
+                </QRCodeProvider>
+              }
             />
-
+            <Route
+              path="qr/:slotId"
+              element={
+                <QRCodeProvider>
+                  <QrCodeInfoPage
+                    setIsLoggedIn={setIsLoggedIn}
+                    profileImage={profileImage}
+                    setProfileImage={setProfileImage}
+                  />
+                </QRCodeProvider>
+              }
+            />
+            <Route
+              path="notification"
+              element={
+                <NotificationPage
+                  setIsLoggedIn={setIsLoggedIn}
+                  profileImage={profileImage}
+                  setProfileImage={setProfileImage}
+                />
+              }
+            />
+            <Route
+              path="notification/add"
+              element={
+                <AddNotificationPage
+                  setIsLoggedIn={setIsLoggedIn}
+                  profileImage={profileImage}
+                  setProfileImage={setProfileImage}
+                />
+              }
+            />
+            <Route
+              path="notification/edit/:id"
+              element={
+                <EditNotificationPage
+                  setIsLoggedIn={setIsLoggedIn}
+                  profileImage={profileImage}
+                  setProfileImage={setProfileImage}
+                />
+              }
+            />
           </Route>
         </Route>
       </Routes>

@@ -1,11 +1,14 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import type { EnrichedQRCodeSlot } from "../../../../../../backend/src/mock/types";
 
-export type QRCodeSlot = EnrichedQRCodeSlot; // ✅ alias ให้ context ใช้ QRCodeSlot ที่ enriched
+// ❌ ลบบรรทัด mock เดิม
+// import type { EnrichedQRCodeSlot } from "../../../../../../backend/src/mock/types";
+// export type QRCodeSlot = EnrichedQRCodeSlot;
 
+// ✅ ใช้ type ของโปรเจกต์ (ไฟล์: feature/management/QrCode/types/qrcode.ts)
+import type { QRCodeSlot } from "../types/qrcode";
 
-
+// ✅ ใช้ฟังก์ชันที่ดึงจาก Supabase (ไฟล์: src/api/qrcodes.ts)
 import { fetchQRCodes } from "../../../../api/qrcodes";
 
 type QRCodeContextType = {
@@ -17,20 +20,17 @@ type QRCodeContextType = {
 const QRCodeContext = createContext<QRCodeContextType | undefined>(undefined);
 
 export const QRCodeProvider = ({ children }: { children: ReactNode }) => {
- const [slots, setSlots] = useState<QRCodeSlot[]>([]);
-
+  const [slots, setSlots] = useState<QRCodeSlot[]>([]);
 
   useEffect(() => {
-    const load = async () => {
+    (async () => {
       try {
         const data = await fetchQRCodes();
         setSlots(data);
       } catch (err) {
         console.error("Failed to fetch QRCode data", err);
       }
-    };
-
-    load();
+    })();
   }, []);
 
   const updateTeacher = (slotId: string, teacherId: string, teacherName: string) => {

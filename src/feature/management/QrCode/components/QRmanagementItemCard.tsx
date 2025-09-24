@@ -82,7 +82,7 @@ export default function QRmanagementItemCard({ title, status, qrID, onClick }: P
           <QRIcon style={{ width: 80, height: 80 }} />
 
           {/* วงกลมสีขาวซ้อนกลาง */}
-          <Box
+          {/* <Box
             sx={{
               position: "absolute",
               top: "50%", // 🔄 ตำแหน่งจากบน 50%
@@ -98,7 +98,7 @@ export default function QRmanagementItemCard({ title, status, qrID, onClick }: P
               justifyContent: "center",
             }}
           >
-            {/* ข้อความ QR บนวงกลม */}
+            ข้อความ QR บนวงกลม
             <Typography
               sx={{
                 fontSize: "12px",
@@ -109,7 +109,7 @@ export default function QRmanagementItemCard({ title, status, qrID, onClick }: P
             >
               {qrID}
             </Typography>
-          </Box>
+          </Box> */}
         </Box>
 
       ) : (

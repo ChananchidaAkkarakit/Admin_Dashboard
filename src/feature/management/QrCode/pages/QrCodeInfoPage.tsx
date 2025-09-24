@@ -20,8 +20,6 @@ import { useQRCodeContext } from ".././contexts/QRCodeContext";
 import type { EnrichedQRCodeSlot as QRCodeSlot } from "../../../../../../backend/src/mock/types";
 import axios from "axios";
 
-
-
 type LogEntry = {
     timestamp: string;
     type: "qrStatus" | "teacherChange";
