@@ -88,6 +88,7 @@ export async function updateNotification(id: string, patch: Partial<Notification
       .eq("notification_id", id);
     if (error) throw error;
   }
+  
 
   // update message fields
   const msgUpd: any = {};
