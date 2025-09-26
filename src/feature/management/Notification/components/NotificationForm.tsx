@@ -15,6 +15,7 @@ import {
 import { useNavigate } from "react-router-dom";
 
 export type NotificationFormValues = {
+  targetRole: null;
   messageId: string;
   messageName: string;
   message: string;
