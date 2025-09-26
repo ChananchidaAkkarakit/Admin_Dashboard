@@ -55,7 +55,7 @@ export default function MonitoringAllItemsPage() {
                     sx={{
                         mt: 1,
                         mb: 3,
-                        
+
                         // กำหนดความยาวเส้น
                         borderBottomWidth: 2,  // ความหนาเส้น
                         borderColor: "#CBDCEB" // สีเส้น
@@ -128,7 +128,11 @@ export default function MonitoringAllItemsPage() {
                                                 <Grid item key={slot.slotId}>
                                                     <ManageItemCard
                                                         title={slot.slotId}
-                                                        percentage={slot.capacity ?? 0}
+                                                        percentage={
+                                                            slot.capacity != null
+                                                                ? Math.max(0, Math.min(100, Math.round((slot.capacity / 250) * 100)))
+                                                                : 0
+                                                        }
                                                         status={slot.connectionStatus}
                                                         onClick={() =>
                                                             navigate(`/app/monitoring/slot/${slot.slotId}`, {
@@ -142,6 +146,7 @@ export default function MonitoringAllItemsPage() {
                                                         }
                                                     />
                                                 </Grid>
+
                                             ))}
                                     </Grid>
                                 </Box>

@@ -27,6 +27,8 @@ import RegistrationSearch from "../feature/home/components/RegistrationSearch";
 import TeacherFormPage from "../feature/home/page/TeacherFormPage";
 import StudentFormPage from "../feature/home/page/StudentFormPage";
 
+import MqttBackgroundBridge from "../feature/_infra/MqttBackgroundBridge";
+
 export default function AppRouter() {
   const [isLoggedIn, setIsLoggedIn] = useState(localStorage.getItem("isLoggedIn") === "true");
 
@@ -53,7 +55,9 @@ export default function AppRouter() {
   }, [profileImage]);
 
   return (
+    
     <HashRouter>
+      <MqttBackgroundBridge />
       <Routes>
         {/* 🔒 หน้า Login */}
         <Route

@@ -8,40 +8,37 @@ import {
   CardContent,
   Grid,
   CircularProgress,
-  Chip,
   Divider,
-  CardActionArea,
   Button,
-  Stack,
 } from "@mui/material";
 import ArrowBackIcon from "../../../assets/icons/arrow-back.svg?react";
 import BoxIcon from "../../../assets/icons/box.svg?react";
-import ErrorIcon from "../../../assets/icons/error.svg?react";
 import InboxIcon from "../../../assets/icons/inbox.svg?react";
-import CheckIcon from "../../../assets/icons/checkmark.svg?react";
-import WiFiIcon from "../../../assets/icons/wifi.svg?react";
+//import ErrorIcon from "../../../assets/icons/error.svg?react";
+//import CheckIcon from "../../../assets/icons/checkmark.svg?react";
+//import WiFiIcon from "../../../assets/icons/wifi.svg?react";
 import { supabase } from "../../../supabaseClient";
-import { useMqtt } from "../../../hooks/useMqtt";
-
-// ตารางใน Supabase (แก้ชื่อได้ตรงนี้)
+import {
+  useMqtt,
+  makeCommandTopic,
+  makeStatusTopic,
+  makeWarningTopic,
+} from "../../../hooks/useMqtt";
+import { dbg, dbw, dbe } from "../../../debug";
 const TBL = {
   slots: "slots",
-  login: null,        // ตอนนี้ยังไม่มี
-  activation: null,   // ตอนนี้ยังไม่มี
+  login: null,
+  activation: null,
 };
 
 type SlotRow = {
   slot_id: string;
-  cupboard_id: string;
+  node_id: string;
   connection_status: "online" | "offline" | string;
   capacity: number | null;
   is_open?: boolean;
-
-  // เพิ่มให้ตรงกับ enum ใน DB
   sensor_status?: "ok" | "error" | "unknown";
   wifi_status?: "connected" | "disconnected" | "unknown";
-
-  // ออปชั่น: ถ้าอยากใช้ใน UI ต่อ
   wifi_rssi?: number | null;
   ip_addr?: string | null;
   last_sensor_at?: string | null;
@@ -64,6 +61,72 @@ type ActivationLog = {
   description: string;
 };
 
+// ===== DB sync helper (per-slot throttle) =====
+const __lastSyncMap: Record<string, number> = {};
+
+async function syncSlotStateToDB(
+  slotId: string,
+  patch: Partial<SlotRow>,
+  opts?: { force?: boolean }
+) {
+  const now = Date.now();
+  const last = __lastSyncMap[slotId] ?? 0;
+  const force = !!opts?.force;
+  if (!force && now - last < 1200) return; // throttle 1.2s ต่อ slot
+  __lastSyncMap[slotId] = now;
+
+  try {
+    const body: any = {
+      is_open: typeof patch.is_open === "boolean" ? patch.is_open : undefined,
+      capacity: typeof patch.capacity === "number" ? patch.capacity : undefined,
+      sensor_status: patch.sensor_status,
+      wifi_status: patch.wifi_status,
+      wifi_rssi:
+        typeof patch.wifi_rssi === "number" ? patch.wifi_rssi : undefined,
+      ip_addr: patch.ip_addr,
+      last_seen_at: patch.last_seen_at ?? new Date().toISOString(),
+    };
+    Object.keys(body).forEach((k) => body[k] === undefined && delete body[k]);
+    if (Object.keys(body).length === 0) return;
+
+    const { data, error } = await supabase
+      .from("slots")
+      .update(body)
+      .eq("slot_id", slotId)
+      .select("slot_id,is_open,last_seen_at");
+
+    if (error) {
+      console.error("[DB] UPDATE slots error:", error, { slotId, body });
+      return;
+    }
+    if (!data?.length) {
+      console.warn(
+        "[DB] UPDATE OK but 0 rows matched — ตรวจ slot_id ให้ตรง DB",
+        { slotId, body }
+      );
+      return;
+    }
+    console.log("[DB] slots updated:", data);
+  } catch (e) {
+    console.error("[DB] UPDATE slots exception:", e, { slotId, patch });
+  }
+}
+
+function parseIsOpen(v: any): boolean | null {
+  if (v === true) return true;
+  if (v === false) return false;
+  if (typeof v === "number") {
+    if (v === 1) return true;
+    if (v === 0) return false;
+  }
+  if (typeof v === "string") {
+    const s = v.trim().toLowerCase();
+    if (["1", "true", "open", "opened", "unlock"].includes(s)) return true;
+    if (["0", "false", "closed", "close", "lock"].includes(s)) return false;
+  }
+  return null;
+}
+
 export default function SlotDashboard() {
   const { slotId } = useParams<{ slotId: string }>();
   const navigate = useNavigate();
@@ -74,195 +137,216 @@ export default function SlotDashboard() {
 
   const [slot, setSlot] = useState<SlotRow | null>(null);
   const [loginHistory, setLoginHistory] = useState<LoginLog[]>([]);
-  const [activationHistory, setActivationHistory] = useState<ActivationLog[]>([]);
+  const [activationHistory, setActivationHistory] = useState<ActivationLog[]>(
+    []
+  );
 
-  // helper: แปลง state เป็นข้อความ/สี
-  const isOpen = !!slot?.is_open;
-  const usageText = isOpen ? "On" : "Off";
-  const usageColor = isOpen ? "#39B129" : "#B21B1B";
+  // เปิดได้อย่างเดียว + ล็อกจนปิดประตูจริง
+  const [sendingOpen, setSendingOpen] = useState(false);
+  const [awaitingClose, setAwaitingClose] = useState(false);
 
-  // (ใหม่) state ระหว่างส่งคำสั่ง
-  const [sending, setSending] = useState<"open" | "close" | null>(null);
+  const isOpen = slot?.is_open ?? false;
+  const usageText = isOpen ? "Opened" : "Closed";
 
-  // state ที่อาจถูกส่งมาจากหน้ารายการ (ไว้ fallback ให้จอไม่ว่าง)
-  const fromState = useMemo(() => {
-    const s = location.state as Partial<{
+  // state จากหน้าก่อน
+  const fromState = location.state as
+    | Partial<{
       slotId: string;
-      cupboardId: string;
+      nodeId: string;
       connectionStatus: SlotRow["connection_status"];
       wifiStatus: SlotRow["wifi_status"];
       sensorStatus: SlotRow["sensor_status"];
       capacity: number;
-    }> | undefined;
-    return s;
-  }, [location.state]);
+    }>
+    | undefined;
 
-  // ดึงจาก DB เป็นหลัก, ถ้ายังไม่โหลดเสร็จ ใช้ location.state ชั่วคราว
-  const cupboardId =
-    slot?.cupboard_id || (fromState?.cupboardId as string | undefined);
+  const nodeId = slot?.node_id || fromState?.nodeId;
 
-  // MQTT topics (ใช้ cupboard_id + slot_id)
-  const statusTopic =
-    cupboardId && slotId
-      ? `smartlocker/${cupboardId}/slot/${slotId}/status`
-      : null;
-  const commandTopic =
-    cupboardId && slotId
-      ? `smartlocker/${cupboardId}/slot/${slotId}/command`
-      : null;
+  const [warning, setWarning] = useState<{
+    code?: string;
+    message?: string;
+    ts?: number;
+  } | null>(null);
 
-  // สมัคร MQTT แบบ dynamic ตาม topic ที่พร้อม
-  const { status: mqttStatus, publish, onMessage } = useMqtt(
-    statusTopic ? [statusTopic] : []
+  // MQTT topics
+  const statusTopic = nodeId && slotId ? makeStatusTopic(nodeId, slotId) : null;
+  const warningTopic =
+    nodeId && slotId ? makeWarningTopic(nodeId, slotId) : null;
+  // action ให้ตรงกับ hooks/useMqtt.ts
+  const commandOpenTopic =
+    nodeId && slotId ? makeCommandTopic(nodeId, slotId, "door") : null;
+
+  const { status: mqttStatus, onMessage, publish } = useMqtt(
+    [statusTopic, warningTopic].filter(Boolean) as string[]
   );
 
-  // ฟังสถานะจากอุปกรณ์ → อัปเดต UI
-  useEffect(() => {
-    if (!statusTopic) return;
-    const unsubscribe = onMessage((topic, payload) => {
-      if (topic !== statusTopic) return;
-      setSlot((prev) => {
-        const base =
-          prev ?? {
-            slot_id: slotId!,
-            cupboard_id: cupboardId!,
-            connection_status: "active",
-            capacity: null,
-            is_open: false,
-            sensor_status: "unknown",
-            wifi_status: "unknown",
-          };
-        return {
-          ...base,
-          is_open: payload?.door ? payload.door === "open" : base.is_open,
-          capacity:
-            typeof payload?.capacity === "number" ? payload.capacity : base.capacity,
-          sensor_status: payload?.sensor_status ?? base.sensor_status,
-          wifi_status: payload?.wifi_status ?? base.wifi_status,
-          wifi_rssi:
-            typeof payload?.wifi_rssi === "number"
-              ? payload.wifi_rssi
-              : base.wifi_rssi,
-          ip_addr: payload?.ip_addr ?? base.ip_addr,
-          last_seen_at: payload?.ts
-            ? new Date(payload.ts).toISOString()
-            : base.last_seen_at,
-        };
-      });
-    });
-    return () => unsubscribe();  // ✅ cleanup เป็นฟังก์ชันเสมอ
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusTopic]);
 
-  // โหลดข้อมูลหลักจาก Supabase
+  useEffect(() => {
+    if (!statusTopic && !warningTopic) return;
+
+    // --- ลดความถี่การอัปเดตหน้าจอ ---
+    const lastApplyRef = { current: 0 };
+    const APPLY_EVERY_MS = 80; // 80–150ms กำลังดี
+
+    const off = onMessage(
+      (topic, payload) => {
+        // ----- STATUS -----
+        if (topic === statusTopic) {
+          const now = Date.now();
+          if (now - lastApplyRef.current < APPLY_EVERY_MS) return;
+          lastApplyRef.current = now;
+
+          // งานอัปเดต UI ให้เป็น transition เพื่อลื่นขึ้น
+          const run = () =>
+            setSlot((prev) => {
+              const base: SlotRow =
+                prev ?? {
+                  slot_id: slotId!,
+                  node_id: nodeId!,
+                  connection_status: "online",
+                  capacity: null,
+                  is_open: false,
+                  sensor_status: "unknown",
+                  wifi_status: "unknown",
+                  wifi_rssi: null,
+                  ip_addr: null,
+                  last_sensor_at: null,
+                  last_seen_at: null,
+                };
+
+              const parsed = parseIsOpen(payload?.is_open);
+
+              // next จากค่าเดิม
+              const next: SlotRow = {
+                ...base,
+                node_id: payload?.cupboard_id ?? payload?.node_id ?? base.node_id,
+                is_open: parsed === null ? base.is_open : parsed,
+                capacity:
+                  typeof payload?.capacity === "number"
+                    ? payload.capacity
+                    : base.capacity,
+                sensor_status: payload?.sensor_status ?? base.sensor_status,
+                wifi_status: payload?.wifi_status ?? base.wifi_status,
+                wifi_rssi:
+                  typeof payload?.wifi_rssi === "number"
+                    ? payload?.wifi_rssi
+                    : base.wifi_rssi,
+                ip_addr: payload?.ip_addr ?? base.ip_addr,
+                // อย่าให้ field เวลาบังคับ re-render ทุกครั้ง: เปลี่ยนได้ แต่เราไม่ใช้เปรียบเทียบ
+                last_seen_at: payload?.ts
+                  ? new Date(payload.ts).toISOString()
+                  : base.last_seen_at ?? new Date().toISOString(),
+              };
+
+              // 🔎 shallow equal: ถ้าไม่เปลี่ยน → คืน prev
+              if (
+                next.is_open === base.is_open &&
+                next.capacity === base.capacity &&
+                next.sensor_status === base.sensor_status &&
+                next.wifi_status === base.wifi_status &&
+                next.wifi_rssi === base.wifi_rssi &&
+                next.ip_addr === base.ip_addr &&
+                next.node_id === base.node_id
+              ) {
+                return prev;
+              }
+
+              // อัปเดต state ปุ่ม
+              if (next.is_open) {
+                setSendingOpen(false);
+                setAwaitingClose(true);
+              } else {
+                setSendingOpen(false);
+                setAwaitingClose(false);
+              }
+
+              // sync DB เฉพาะตอน edge เปลี่ยนจริง
+              const edgeChanged = base.is_open !== next.is_open;
+              if (edgeChanged) {
+                syncSlotStateToDB(
+                  next.slot_id,
+                  {
+                    is_open: next.is_open,
+                    capacity: next.capacity ?? undefined,
+                    sensor_status: next.sensor_status,
+                    wifi_status: next.wifi_status,
+                    wifi_rssi: next.wifi_rssi ?? undefined,
+                    ip_addr: next.ip_addr ?? undefined,
+                    last_seen_at: next.last_seen_at ?? undefined,
+                  },
+                  { force: true }
+                );
+              }
+
+              return next;
+            });
+
+          // ใช้ startTransition ถ้ามี (React 18)
+          run();
+        }
+
+        // ----- WARNING -----
+        if (topic === warningTopic) {
+          setWarning({
+            code: payload?.code,
+            message:
+              payload?.message ??
+              (typeof payload === "string" ? payload : JSON.stringify(payload)),
+            ts: payload?.ts,
+          });
+
+          // fire-and-forget เพื่อไม่บล็อก UI
+          supabase
+            .from("warnings")
+            .insert({
+              slot_id: slotId!,
+              code: payload?.code ?? null,
+              message:
+                payload?.message ??
+                (typeof payload === "string" ? payload : JSON.stringify(payload)),
+              created_at: new Date().toISOString(),
+              raw: payload ?? null,
+            })
+            .then(
+    () => {},
+    (err: unknown) => console.error("insert warnings error:", err)
+  );
+        }
+      },
+      { replayLast: true }
+    );
+
+    return off;
+  }, [statusTopic, warningTopic, onMessage, slotId, nodeId]);
+
+  // โหลดข้อมูลจาก DB (ครั้งแรก/เปลี่ยน slot)
   useEffect(() => {
     let active = true;
-
     async function run() {
       if (!slotId) return;
       setLoading(true);
       setErr(null);
-
       try {
-        // ---------- SLOT ----------
-        const { data: slotData, error: slotErr } = await supabase
+        const { data, error } = await supabase
           .from(TBL.slots)
           .select(
-            `
-            slot_id,
-            cupboard_id,
-            connection_status,
-            capacity,
-            is_open,
-            sensor_status,
-            wifi_status,
-            wifi_rssi,
-            ip_addr,
-            last_sensor_at,
-            last_seen_at
-          `
+            "slot_id,node_id,connection_status,capacity,is_open,sensor_status,wifi_status,wifi_rssi,ip_addr,last_sensor_at,last_seen_at"
           )
           .eq("slot_id", slotId)
           .maybeSingle();
-
-        if (slotErr) throw slotErr;
-
-        const mappedSlot = slotData
-          ? {
-            slot_id: (slotData as any).slot_id,
-            cupboard_id: (slotData as any).cupboard_id ?? "-",
-            connection_status:
-              (slotData as any).connection_status ?? "online",
-            capacity: (slotData as any).capacity ?? null,
-            is_open: (slotData as any).is_open ?? false,
-
-            sensor_status: (slotData as any).sensor_status ?? "unknown",
-            wifi_status: (slotData as any).wifi_status ?? "unknown",
-
-            wifi_rssi: (slotData as any).wifi_rssi ?? null,
-            ip_addr: (slotData as any).ip_addr ?? null,
-            last_sensor_at: (slotData as any).last_sensor_at ?? null,
-            last_seen_at: (slotData as any).last_seen_at ?? null,
-          }
-          : null;
-
-        // ---------- LOGIN HISTORY (optional) ----------
-        let loginData: any[] = [];
-        if (TBL.login) {
-          try {
-            const { data, error } = await supabase
-              .from(TBL.login) // <= เรียกเฉพาะเมื่อมีชื่อจริง
-              .select("id, name, date, time, description")
-              .eq("slot_id", slotId)
-              .order("date", { ascending: false })
-              .order("time", { ascending: false })
-              .limit(10);
-            if (error) throw error;
-            loginData = data ?? [];
-          } catch (e: any) {
-            if (!(e?.code === "42P01" || /does not exist/i.test(e?.message))) {
-              throw e;
-            }
-            loginData = [];
-          }
-        }
-
-        // ---------- ACTIVATION HISTORY (optional) ----------
-        let actData: any[] = [];
-        if (TBL.activation) {
-          try {
-            const { data, error } = await supabase
-              .from(TBL.activation)
-              .select("id, name, date, time, description")
-              .eq("slot_id", slotId)
-              .order("date", { ascending: false })
-              .order("time", { ascending: false })
-              .limit(10);
-            if (error) throw error;
-            actData = data ?? [];
-          } catch (e: any) {
-            if (!(e?.code === "42P01" || /does not exist/i.test(e?.message))) {
-              throw e;
-            }
-            actData = [];
-          }
-        }
-
+        if (error) throw error;
         if (!active) return;
 
-        setSlot(
-          mappedSlot ?? {
-            slot_id: slotId,
-            cupboard_id: (location.state as any)?.cupboardId ?? "-",
-            connection_status:
-              (location.state as any)?.connectionStatus ?? "online",
-            sensor_status: (location.state as any)?.sensorStatus ?? "ok",
-            wifi_status: (location.state as any)?.wifiStatus ?? "connected",
-            capacity: (location.state as any)?.capacity ?? null,
-          }
-        );
-        setLoginHistory(loginData);
-        setActivationHistory(actData);
+        const s = (data || null) as SlotRow | null;
+
+        setSlot(s);
+        if (s?.is_open === true) {
+          setAwaitingClose(true); // เปิดอยู่ → รอปิด
+          setSendingOpen(false);
+        } else {
+          setAwaitingClose(false);
+          setSendingOpen(false);
+        }
       } catch (e: any) {
         if (!active) return;
         console.error("slot dashboard error:", e);
@@ -271,99 +355,140 @@ export default function SlotDashboard() {
         if (active) setLoading(false);
       }
     }
-
     run();
     return () => {
       active = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slotId]);
 
-  // ✅ แปลงค่าจาก DB -> เปอร์เซ็นต์ 0–100 อย่างปลอดภัย
-  const capacityText = slot?.capacity != null ? `${slot.capacity} / 100` : "—";
-  const progress = useMemo(() => {
-    const n = Number(slot?.capacity);
-    if (!Number.isFinite(n)) return 0; // null/NaN -> 0
-    return Math.max(0, Math.min(100, Math.round(n))); // clamp 0..100
-  }, [slot?.capacity]);
+  // กันปุ่มค้าง ถ้า 12 วินาทีแล้วยังไม่เห็น STATUS กลับมา ให้คลายสถานะส่ง
+  useEffect(() => {
+    if (!sendingOpen) return;
+    const t = setTimeout(() => {
+      setSendingOpen(false);
+    }, 10000);
+    return () => clearTimeout(t);
+  }, [sendingOpen]);
 
-  // ส่งคำสั่งไปอุปกรณ์ + log + sync DB (ออปชั่น)
-  async function sendCommand(action: "open" | "close") {
-    if (!slot || !commandTopic) return;
-    setSending(action);
+  // reset เมื่อเข้าหน้าใหม่/เปลี่ยน slot
+  useEffect(() => {
+    setAwaitingClose(false);
+    setSendingOpen(false);
+  }, [slotId]);
 
-    // ส่งคำสั่งไปอุปกรณ์
-    publish(commandTopic, { action, by: "web-ui", slotId, ts: Date.now() });
-
-    // Optimistic UI
-    setSlot((s) => (s ? { ...s, is_open: action === "open" } : s));
-
-    // (ออปชั่น) บันทึกลง activation_logs
-    try {
-      await supabase.from("activation_logs").insert({
-        slot_id: slot.slot_id,
-        action,
-        cause: "manual",
-        metadata: { via: "web-ui" },
-      });
-    } catch {
-      /* ignore */
+  useEffect(() => {
+    if (slot?.is_open === false && awaitingClose) {
+      setAwaitingClose(false);
     }
+  }, [slot?.is_open, awaitingClose]);
 
-    // (ออปชั่น) Sync fields สำคัญของ slots
+  // raw capacity (0–250) → %
+  const raw = Number(slot?.capacity);
+  const MAX_RAW = 250;
+
+  const progress = useMemo(() => {
+    if (!Number.isFinite(raw)) return 0;
+    const percent = (raw / MAX_RAW) * 100;
+    return Math.max(0, Math.min(100, Math.round(percent)));
+  }, [raw]);
+
+  // capacity → "xx / 100"
+  const capacityText = Number.isFinite(raw) ? `${progress} / 100` : "—";
+
+  // ===== ACTION: OPEN (จริง ๆ คือ UNLOCK ตามสเปค) =====
+  async function openSlot() {
+    if (!slot || !nodeId || !slotId || !commandOpenTopic) return;
+    if (sendingOpen || awaitingClose || slot.is_open === true) return;
+
+    setSendingOpen(true);
+
+    const cmdId =
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `cmd_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+
+    const payload = {
+      role: "admin",
+      cmd_id: cmdId,
+      slot_id: slotId,
+      ts: Date.now(),
+    };
+
+    console.log("[publish unlock]", { topic: commandOpenTopic, payload });
+    publish(commandOpenTopic, payload);
+
     try {
-      await supabase
-        .from("slots")
-        .update({
-          is_open: action === "open",
-          last_open_at: action === "open" ? new Date().toISOString() : null,
+      supabase
+        .from("activation_logs")
+        .insert({
+          slot_id: slot.slot_id,
+          action: "unlock",
+          cause: "manual",
+          metadata: { via: "web-ui", cmd_id: cmdId },
         })
-        .eq("slot_id", slot.slot_id);
-    } catch {
-      /* ignore */
-    } finally {
-      setSending(null);
+        .throwOnError();
+    } catch (e) {
+      console.error("insert activation_logs error:", e);
     }
   }
 
+  const doorOpen = slot?.is_open === true;
+
+  const openDisabled =
+    mqttStatus === "error" ||
+    mqttStatus === "idle" ||
+    sendingOpen ||
+    doorOpen ||
+    !nodeId ||
+    !slot ||
+    !commandOpenTopic;
+
   return (
-    <Box
-      sx={{
-        display: "flex",
-        flexDirection: { xs: "column", sm: "column", md: "column", lg: "row" },
-        width: "100%",
-      }}
-    >
-      {/* คอลัมน์ซ้าย */}
-      <Box sx={{ flex: 1, width: "80%" }}>
+    <Box sx={{ display: "flex", flexDirection: "column", width: "100%" }}>
+      <Box sx={{ flex: 1, width: "100%" }}>
         {/* Header */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 1 }}>
           <ArrowBackIcon
             onClick={() => navigate(-1)}
             style={{ width: 28, height: 28, cursor: "pointer" }}
           />
-          <Typography fontSize="40px" fontWeight={900} fontStyle="italic" color="#133E87">
+          <Typography
+            fontSize="40px"
+            fontWeight={900}
+            fontStyle="italic"
+            color="#133E87"
+          >
             Monitoring
           </Typography>
         </Box>
+
+        {warning?.message && (
+          <Box sx={{ mx: 2, mb: 2 }}>
+            <Box
+              role="alert"
+              aria-live="polite"
+              style={{
+                border: "1px solid #F5C0C0",
+                background: "#FFF5F5",
+                color: "#B21B1B",
+                padding: "10px 14px",
+                borderRadius: 8,
+                fontWeight: 600,
+              }}
+            >
+              {warning.code ? `[${warning.code}] ` : ""}
+              {warning.message}
+            </Box>
+          </Box>
+        )}
+
         <Divider
-          sx={{
-            mt: 1,
-            mb: 3,
-            mx: 2,
-            borderBottomWidth: 2,
-            borderColor: "#CBDCEB",
-          }}
+          sx={{ mt: 1, mb: 3, mx: 2, borderBottomWidth: 2, borderColor: "#CBDCEB" }}
         />
 
-        {/* ชื่อ Slot */}
+        {/* Slot name */}
         <Box mt={1} mb={2} display="flex" justifyContent="center">
-          <Typography
-            variant="h5"
-            fontWeight={800}
-            color="#133E87"
-            sx={{ letterSpacing: 0.2 }}
-          >
+          <Typography variant="h5" fontWeight={800} color="#133E87">
             {`Slot ${slotId ?? ""}`}
           </Typography>
         </Box>
@@ -383,197 +508,101 @@ export default function SlotDashboard() {
           <>
             {/* แถวบน: Usage / Sensor */}
             <Grid container spacing={5} mb={3} sx={{ px: { xs: 0, md: 10 } }}>
-              <Grid item xs={12} md={8}>
-                <Card
-                  sx={{
-                    borderRadius: 15,
-                    background: isOpen ? "#D6E4EF" : "white",
-                    border: "1px solid #D6E4EF",
-                  }}
-                >
-                  {/* เดิมเป็น CardActionArea toggle; ตอนนี้ใช้ปุ่ม Open/Close แทน */}
-                  <CardActionArea
-                    disabled
-                    sx={{
-                      borderRadius: 15,
-                      cursor: "default",
-                    }}
-                  >
-                    <CardContent
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        py: 2.5,
-                      }}
-                    >
-                      <Box display="flex" alignItems="center" gap={2}>
-                        <Box
-                          sx={{
-                            width: 55,
-                            height: 55,
-                            borderRadius: "50%",
-                            background: isOpen ? "#ffffff" : "#D6E4EF",
-                            display: "grid",
-                            placeItems: "center",
-                            fontSize: 22,
-                          }}
-                        >
-                          <BoxIcon height={30} width={30} color="#133E87" />
-                        </Box>
-                        <Box>
-                          <Typography
-                            fontWeight={700}
-                            fontSize={20}
-                            fontStyle="italic"
-                            color="#133E87"
-                          >
-                            Cupboard Usage Status
-                          </Typography>
-                          <Typography color="#133E87">Status : {usageText}</Typography>
-                          <Typography color="#133E87" sx={{ mt: 0.5, fontSize: 12 }}>
-                            MQTT: {mqttStatus}{" "}
-                            {cupboardId ? `• cupboard_id: ${cupboardId}` : "• loading cupboard_id..."}
-                          </Typography>
-                        </Box>
-                      </Box>
-
-                      <Stack direction="row" spacing={1} sx={{ mr: 2 }}>
-                        <Button
-                          variant="contained"
-                          size="small"
-                          disabled={
-                            mqttStatus !== "connected" ||
-                            sending !== null ||
-                            isOpen ||
-                            !cupboardId ||
-                            slot?.wifi_status === "disconnected"
-                          }
-                          onClick={() => sendCommand("open")}
-                        >
-                          {sending === "open" ? "Opening..." : "Open"}
-                        </Button>
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          disabled={
-                            mqttStatus !== "connected" ||
-                            sending !== null ||
-                            !isOpen ||
-                            !cupboardId ||
-                            slot?.wifi_status === "disconnected"
-                          }
-                          onClick={() => sendCommand("close")}
-                        >
-                          {sending === "close" ? "Closing..." : "Close"}
-                        </Button>
-                      </Stack>
-
-                      <Chip
-                        label=" "
-                        sx={{
-                          width: 20,
-                          height: 20,
-                          mr: 1,
-                          borderRadius: "50%",
-                          bgcolor: usageColor,
-                        }}
-                      />
-                    </CardContent>
-                  </CardActionArea>
-                </Card>
-              </Grid>
-
-              <Grid item xs={12} md={4}>
-                <Card
-                  sx={{ borderRadius: 15, px: 2, background: "white", border: "1px solid #D6E4EF" }}
-                >
+              <Grid item xs={12} md={12}>
+                <Card sx={{ borderRadius: 15, border: "1px solid #D6E4EF" }}>
                   <CardContent
                     sx={{
                       display: "flex",
                       alignItems: "center",
-                      justifyItems: "center",
                       justifyContent: "space-between",
                       py: 2.5,
                     }}
                   >
-                    <Box>
-                      <Typography
-                        fontWeight={700}
-                        fontSize={20}
-                        fontStyle="italic"
-                        color="#133E87"
+                    <Box display="flex" alignItems="center" gap={2}>
+                      <Box
+                        sx={{
+                          width: 55,
+                          height: 55,
+                          borderRadius: "50%",
+                          background: isOpen ? "#ffffff" : "#D6E4EF",
+                          display: "grid",
+                          placeItems: "center",
+                        }}
                       >
-                        Sensor
-                      </Typography>
-                      <Typography color="#133E87">
-                        Status :{" "}
-                        {(slot?.sensor_status ?? "unknown") === "error"
-                          ? "Error"
-                          : (slot?.sensor_status ?? "unknown") === "ok"
-                            ? "Normal"
-                            : "Error" /* unknown = Error */}
-                      </Typography>
+                        <BoxIcon height={30} width={30} color="#133E87" />
+                      </Box>
+                      <Box>
+                        <Typography
+                          fontWeight={700}
+                          fontSize={20}
+                          fontStyle="italic"
+                          color="#133E87"
+                        >
+                          Cupboard Door Status
+                        </Typography>
+                        <Typography color="#133E87">
+                          Status : {usageText}
+                        </Typography>
+                        <Typography sx={{ fontSize: 12 }} color="text.secondary">
+                          MQTT: {mqttStatus} {nodeId ? `• node_id: ${nodeId}` : ""}
+                        </Typography>
+                      </Box>
                     </Box>
 
-                    <Box sx={{ fontSize: 20, display: "flex", justifyContent: "center" }}>
-                      {slot?.sensor_status === "ok" ? (
-                        <CheckIcon width={35} height={35} color="#39B129" />
-                      ) : (
-                        <ErrorIcon width={35} height={35} color="#B21B1B" />
-                      )}
-                    </Box>
+                    {/* ปุ่ม OPEN (สั่ง UNLOCK) */}
+                    <Button
+                      onClick={openSlot}
+                      disabled={openDisabled}
+                      variant="contained"
+                      sx={{
+                        minWidth: 160,
+                        height: 40,
+                        fontWeight: 800,
+                        borderRadius: 2,
+                        px: 2,
+                        py: 0.75,
+                        bgcolor:
+                          sendingOpen || awaitingClose ? "#4EA1FF" : undefined,
+                        color:
+                          sendingOpen || awaitingClose ? "#fff" : undefined,
+                        "&:hover":
+                          sendingOpen || awaitingClose
+                            ? { bgcolor: "#4EA1FF" }
+                            : undefined,
+                        "&.Mui-disabled": {
+                          bgcolor:
+                            sendingOpen || awaitingClose ? "#4EA1FF" : "#E0E0E0",
+                          color:
+                            sendingOpen || awaitingClose ? "#fff" : "#9E9E9E",
+                        },
+                      }}
+                      startIcon={
+                        sendingOpen ? (
+                          <CircularProgress size={18} thickness={5} />
+                        ) : undefined
+                      }
+                      title={
+                        openDisabled
+                          ? awaitingClose
+                            ? "Door is open—waiting for it to close"
+                            : "MQTT not ready or already open"
+                          : "Send unlock command to this slot"
+                      }
+                    >
+                      {sendingOpen
+                        ? "OPENING..."
+                        : awaitingClose
+                          ? "WAITING FOR CLOSE"
+                          : "OPEN"}
+                    </Button>
                   </CardContent>
                 </Card>
               </Grid>
             </Grid>
 
-            {/* แถวสอง: Wi-Fi / Capacity + Login History */}
+            {/* แถวสอง: Capacity + History */}
             <Grid container spacing={10} sx={{ px: { xs: 0, md: 10 } }}>
               <Grid item xs={12} md={4}>
-                {/* Wi-Fi */}
-                <Card
-                  sx={{
-                    borderRadius: 15,
-                    background: "white",
-                    border: "1px solid #D6E4EF",
-                    mb: 3,
-                    px: 2,
-                  }}
-                >
-                  <CardContent>
-                    <Typography
-                      fontWeight={700}
-                      fontSize={20}
-                      fontStyle="italic"
-                      color="#133E87"
-                    >
-                      Wi-Fi
-                      <WiFiIcon
-                        style={{
-                          color:
-                            slot?.wifi_status === "connected" ? "#39B129" : "#B21B1B",
-                          marginLeft: 10,
-                        }}
-                      />
-                    </Typography>
-                    <Typography color="#133E87">
-                      Status :{" "}
-                      {(slot?.wifi_status ?? "unknown") === "connected"
-                        ? "Connect"
-                        : (slot?.wifi_status ?? "unknown") === "disconnected"
-                          ? "Disconnect"
-                          : "Unknown"}
-                    </Typography>
-
-                    {/* ถ้าจะโชว์ RSSI */}
-                    {typeof slot?.wifi_rssi === "number" && (
-                      <Typography color="#133E87">RSSI: {slot!.wifi_rssi} dBm</Typography>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Capacity */}
                 <Card sx={{ borderRadius: 6, background: "#D8E6F3" }}>
                   <CardContent>
                     <Box
@@ -591,7 +620,7 @@ export default function SlotDashboard() {
                           width: 48,
                           height: 48,
                           borderRadius: "20px",
-                          background: "#ffffffff",
+                          background: "#fff",
                           display: "grid",
                           placeItems: "center",
                           fontSize: 22,
@@ -603,7 +632,6 @@ export default function SlotDashboard() {
                         <InboxIcon height={25} width={25} color="#608BC1" />
                       </Box>
                       <Box position="relative" display="inline-flex">
-                        {/* track (พื้นหลัง) */}
                         <CircularProgress
                           variant="determinate"
                           value={100}
@@ -611,13 +639,15 @@ export default function SlotDashboard() {
                           thickness={2}
                           sx={{ color: "#EEF3F8", position: "absolute" }}
                         />
-                        {/* progress จริง */}
                         <CircularProgress
                           variant="determinate"
                           value={progress}
                           size={140}
                           thickness={2}
-                          sx={{ color: "#1E3E74", "svg circle": { strokeLinecap: "round" } }}
+                          sx={{
+                            color: "#1E3E74",
+                            "svg circle": { strokeLinecap: "round" },
+                          }}
                         />
                         <Box
                           sx={{
@@ -649,7 +679,7 @@ export default function SlotDashboard() {
                 </Card>
               </Grid>
 
-              {/* Login History */}
+              {/* Login & Activation History */}
               <Grid item xs={12} md={8}>
                 <Typography
                   fontStyle="italic"
@@ -660,7 +690,13 @@ export default function SlotDashboard() {
                 >
                   Login History
                 </Typography>
-                <Card sx={{ borderRadius: 6, overflow: "hidden", border: "1px solid #CBDCEB" }}>
+                <Card
+                  sx={{
+                    borderRadius: 6,
+                    overflow: "hidden",
+                    border: "1px solid #CBDCEB",
+                  }}
+                >
                   <Box
                     sx={{
                       display: "grid",
@@ -704,7 +740,6 @@ export default function SlotDashboard() {
                   </Box>
                 </Card>
 
-                {/* Activation History */}
                 <Typography
                   fontStyle="italic"
                   fontWeight="300"
@@ -716,7 +751,11 @@ export default function SlotDashboard() {
                   Cupboard Activation History
                 </Typography>
                 <Card
-                  sx={{ width: "200", borderRadius: 6, overflow: "hidden", border: "1px solid #CBDCEB" }}
+                  sx={{
+                    borderRadius: 6,
+                    overflow: "hidden",
+                    border: "1px solid #CBDCEB",
+                  }}
                 >
                   <Box
                     sx={{

@@ -1,5 +1,4 @@
-// src/lib/mqtt.ts
-import mqtt from "mqtt";                          // ⬅️ ใช้ default import
+import mqtt from "mqtt";
 import type { IClientOptions, MqttClient } from "mqtt";
 
 let client: MqttClient | null = null;
@@ -16,13 +15,21 @@ export function ensureMqtt(): MqttClient {
     clean: true,
     reconnectPeriod: 2000,
     connectTimeout: 20_000,
-    protocolVersion: 5,
-    properties: {
-      requestResponseInformation: true,
-      requestProblemInformation: true,
-    },
+    protocol: "wss",          // เน้นให้ชัด
+    protocolVersion: 5,       // ถ้าไม่ได้ ลอง 4
+    resubscribe: true,
   };
 
-  client = mqtt.connect(url, options);            // ⬅️ เรียกผ่าน default import
+  console.info("[mqtt] url:", url, "user:", !!options.username);
+
+  client = mqtt.connect(url, options);
+
+  client.on("connect",    () => console.info("[mqtt] connect"));
+  client.on("reconnect",  () => console.warn("[mqtt] reconnecting..."));
+  client.on("close",      () => console.warn("[mqtt] close"));
+  client.on("offline",    () => console.warn("[mqtt] offline"));
+  client.on("end",        () => console.warn("[mqtt] end"));
+  client.on("error",      (e) => console.error("[mqtt] error:", e?.message || e));
+
   return client!;
 }
