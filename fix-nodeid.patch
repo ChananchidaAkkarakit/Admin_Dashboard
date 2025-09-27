@@ -1,3 +1,5 @@
+diff --git a/src/api/slots.ts b/src/api/slots.ts
+index 1111111..2222222 100644
 --- a/src/api/slots.ts
 +++ b/src/api/slots.ts
 @@
@@ -24,7 +26,9 @@
 +    )
      .eq("slot_id", slotId)
      .maybeSingle();
-
+ 
+diff --git a/src/feature/monitoring/page/SlotDashboard.tsx b/src/feature/monitoring/page/SlotDashboard.tsx
+index 3333333..4444444 100644
 --- a/src/feature/monitoring/page/SlotDashboard.tsx
 +++ b/src/feature/monitoring/page/SlotDashboard.tsx
 @@
@@ -72,7 +76,9 @@
 @@
 -                          MQTT: {mqttStatus} {nodeId ? `• node_id: ${nodeId}` : ""}
 +                          MQTT: {mqttStatus} {nodeId ? `• cupboard_id: ${nodeId}` : ""}
-
+ 
+diff --git a/src/feature/_infra/MqttBackgroundBridge.tsx b/src/feature/_infra/MqttBackgroundBridge.tsx
+index 5555555..6666666 100644
 --- a/src/feature/_infra/MqttBackgroundBridge.tsx
 +++ b/src/feature/_infra/MqttBackgroundBridge.tsx
 @@
