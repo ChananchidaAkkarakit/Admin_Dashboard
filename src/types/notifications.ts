@@ -9,7 +9,7 @@ export interface Notification {
   source: NotificationSource;
   status: boolean;
   createdAt: string; // ISO date string
-  targetRole: "teacher" | "student" | "all" | null;
+  targetRole: "teacher" | "student" | "admin" | null;
   targetTeacherId: string | null;
   targetStudentId: string | null;
   payload: Record<string, any> | null;
