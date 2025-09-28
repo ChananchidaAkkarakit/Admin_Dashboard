@@ -8,21 +8,20 @@ export type Slot = {
   slotId: string;
   cupboardId: string;
   teacherId: string | null;
-  capacity: number | null;
-  connectionStatus: "active" | "inactive";
+  capacityPercent: number | null;
+  capacityMm: number | null;
+  connectionStatus: "active" | "inactive";   // 👈 fix type ให้ตรง
   teacherName?: string | null;
 };
 
-// ✅ เปลี่ยน type ให้รองรับ capacity (optional)
 export type SlotContextType = {
   slots: Slot[];
   loading: boolean;
   refresh: () => Promise<void>;
   updateSlotStatus: (slotId: string, status: boolean) => Promise<void>;
   updateTeacher: (slotId: string, teacherId: string, teacherName?: string) => Promise<void>;
-  addSlot: (teacherId: string, on: boolean, capacity?: number) => Promise<{ slotId: string; cupboardId: string }>;
+  addSlot: (teacherId: string, on: boolean, capacityMm?: number) => Promise<{ slotId: string; cupboardId: string }>;
 };
-
 
 const SlotContext = createContext<SlotContextType | undefined>(undefined);
 
@@ -37,7 +36,8 @@ function mapRow(r: any): Slot {
     slotId: r.slot_id,
     cupboardId: r.cupboard_id,
     teacherId: r.teacher_id,
-    capacity: r.capacity ?? null,
+    capacityPercent: r.capacity_percent ?? null,  // ✅ เอาค่านี้ไปใช้ทุกหน้า
+    capacityMm: r.capacity_mm ?? null,
     connectionStatus: r.connection_status,
   };
 }
@@ -48,12 +48,14 @@ export const SlotProvider = ({ children }: { children: ReactNode }) => {
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("v_slots_ordered")
-      .select("slot_id, cupboard_id, teacher_id, capacity, connection_status, slot_no, cupboard_no")
-      .order("cupboard_no")
-      .order("slot_no");
 
+    // ถ้ามี view v_slots_ordered ใช้ตัวนี้ได้เลย
+    // ถ้าไม่มี ให้เปลี่ยนเป็น .from("v_slots") แล้ว order ด้วย cupboard_id, slot_id
+    const { data, error } = await supabase
+      .from("v_slots")
+      .select("slot_id,cupboard_id,teacher_id,capacity_mm,capacity_percent,connection_status,is_open,last_seen_at")
+      .order("cupboard_id")
+      .order("slot_id");
 
     if (error) {
       console.error("❌ fetch slots:", error);
@@ -66,7 +68,7 @@ export const SlotProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => { void refresh(); }, [refresh]);
 
-  // 👇 วาง realtime useEffect ตรงนี้
+  // realtime: ฟังจากตารางจริง 'slots' ก็พอ (view ไม่ยิง event)
   useEffect(() => {
     const ch = supabase
       .channel("slots-rt")
@@ -75,10 +77,8 @@ export const SlotProvider = ({ children }: { children: ReactNode }) => {
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "slots" }, refresh)
       .subscribe();
 
-    // ✅ คืนค่าเป็น () => void
     return () => { void supabase.removeChannel(ch); };
   }, [refresh]);
-
 
   const updateSlotStatus = useCallback(async (slotId: string, status: boolean) => {
     const { error } = await supabase
@@ -86,31 +86,35 @@ export const SlotProvider = ({ children }: { children: ReactNode }) => {
       .update({ connection_status: status ? "active" : "inactive" })
       .eq("slot_id", slotId);
     if (error) throw error;
-    setSlots(prev => prev.map(s => s.slotId === slotId ? { ...s, connectionStatus: status ? "active" : "inactive" } : s));
+    setSlots(prev =>
+      prev.map(s => s.slotId === slotId ? { ...s, connectionStatus: status ? "active" : "inactive" } : s)
+    );
   }, []);
 
   const updateTeacher = useCallback(async (slotId: string, teacherId: string, teacherName?: string) => {
     const { error } = await supabase.from("slots").update({ teacher_id: teacherId }).eq("slot_id", slotId);
     if (error) throw error;
-    setSlots(prev => prev.map(s => s.slotId === slotId ? { ...s, teacherId, teacherName } : s));
+    setSlots(prev =>
+      prev.map(s => s.slotId === slotId ? { ...s, teacherId, teacherName } : s)
+    );
   }, []);
 
-  // ✅ เปลี่ยน implementation ให้รับ 3 พารามิเตอร์ และ insert capacity เข้าไป
+  // เพิ่มช่องใหม่: ตารางจริง 'slots.capacity' เก็บเป็น mm (raw)
   const addSlot = useCallback(
-    async (teacherId: string, on: boolean, capacity = 60) => {
+    async (teacherId: string, on: boolean, capacityMm = 60) => {
       const { data, error } = await supabase
         .from("slots")
         .insert({
           teacher_id: teacherId.toUpperCase(),
-          capacity,
+          capacity: capacityMm,                    // mm ลงตารางจริง
           connection_status: on ? "active" : "inactive",
         })
-        .select("slot_id, cupboard_id")
+        .select("slot_id,cupboard_id")
         .single();
 
       if (error) throw error;
 
-      await refresh(); // ถ้าใช้ realtime อยู่แล้วจะเอาออกก็ได้
+      await refresh(); // realtime มีอยู่แล้ว จะเอาออกก็ได้
       return { slotId: data!.slot_id, cupboardId: data!.cupboard_id };
     },
     [refresh]

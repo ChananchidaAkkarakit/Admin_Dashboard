@@ -1,5 +1,5 @@
 // src/feature/monitoring/page/SlotDashboard.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   Box,
@@ -24,18 +24,22 @@ import {
   makeStatusTopic,
   makeWarningTopic,
 } from "../../../hooks/useMqtt";
-import { dbg, dbw, dbe } from "../../../debug";
-const TBL = {
-  slots: "slots",
-  login: null,
-  activation: null,
-};
+// import { dbg, dbw, dbe } from "../../../debug";
+// import { getCapacityPercent, formatCapacityText } from "../../../../src/utils/metrics";
+import { useCapacity } from "../../../../src/hooks/useCapacity";
+
+// const TBL = {
+//   slots: "slots",
+//   login: null,
+//   activation: null,
+// };
 
 type SlotRow = {
   slot_id: string;
   node_id: string;
   connection_status: "online" | "offline" | string;
-  capacity: number | null;
+  capacity_mm: number | null;
+  capacity_percent: number | null;
   is_open?: boolean;
   sensor_status?: "ok" | "error" | "unknown";
   wifi_status?: "connected" | "disconnected" | "unknown";
@@ -78,7 +82,7 @@ async function syncSlotStateToDB(
   try {
     const body: any = {
       is_open: typeof patch.is_open === "boolean" ? patch.is_open : undefined,
-      capacity: typeof patch.capacity === "number" ? patch.capacity : undefined,
+      capacity: typeof patch.capacity_mm === "number" ? patch.capacity_mm : undefined,
       sensor_status: patch.sensor_status,
       wifi_status: patch.wifi_status,
       wifi_rssi:
@@ -177,9 +181,19 @@ export default function SlotDashboard() {
     nodeId && slotId ? makeCommandTopic(nodeId, slotId, "door") : null;
 
   const { status: mqttStatus, onMessage, publish } = useMqtt(
-    [statusTopic, warningTopic].filter(Boolean) as string[]
+    [statusTopic].filter(Boolean) as string[]
   );
 
+  async function refreshPercentFromView(slotId: string) {
+    const { data, error } = await supabase
+      .from("v_slots")
+      .select("capacity_percent")
+      .eq("slot_id", slotId)
+      .maybeSingle();
+    if (!error && data) {
+      setSlot(prev => prev ? { ...prev, capacity_percent: data.capacity_percent } : prev);
+    }
+  }
 
   useEffect(() => {
     if (!statusTopic && !warningTopic) return;
@@ -204,7 +218,8 @@ export default function SlotDashboard() {
                   slot_id: slotId!,
                   node_id: nodeId!,
                   connection_status: "online",
-                  capacity: null,
+                  capacity_mm: null,
+                  capacity_percent: null,
                   is_open: false,
                   sensor_status: "unknown",
                   wifi_status: "unknown",
@@ -216,32 +231,29 @@ export default function SlotDashboard() {
 
               const parsed = parseIsOpen(payload?.is_open);
 
-              // next จากค่าเดิม
+              const nextMm =
+                typeof payload?.capacity_mm === "number" ? payload.capacity_mm
+                  : typeof payload?.capacity === "number" ? payload.capacity
+                    : base.capacity_mm;
+
+
               const next: SlotRow = {
                 ...base,
-                node_id: payload?.cupboard_id ?? payload?.node_id ?? base.node_id,
+                node_id: payload?.node_id ?? base.node_id,
                 is_open: parsed === null ? base.is_open : parsed,
-                capacity:
-                  typeof payload?.capacity === "number"
-                    ? payload.capacity
-                    : base.capacity,
+                capacity_mm: nextMm,                       // 👈
                 sensor_status: payload?.sensor_status ?? base.sensor_status,
                 wifi_status: payload?.wifi_status ?? base.wifi_status,
-                wifi_rssi:
-                  typeof payload?.wifi_rssi === "number"
-                    ? payload?.wifi_rssi
-                    : base.wifi_rssi,
+                wifi_rssi: typeof payload?.wifi_rssi === "number" ? payload.wifi_rssi : base.wifi_rssi,
                 ip_addr: payload?.ip_addr ?? base.ip_addr,
-                // อย่าให้ field เวลาบังคับ re-render ทุกครั้ง: เปลี่ยนได้ แต่เราไม่ใช้เปรียบเทียบ
-                last_seen_at: payload?.ts
-                  ? new Date(payload.ts).toISOString()
+                last_seen_at: payload?.ts ? new Date(payload.ts).toISOString()
                   : base.last_seen_at ?? new Date().toISOString(),
               };
 
               // 🔎 shallow equal: ถ้าไม่เปลี่ยน → คืน prev
               if (
                 next.is_open === base.is_open &&
-                next.capacity === base.capacity &&
+                next.capacity_mm === base.capacity_mm &&
                 next.sensor_status === base.sensor_status &&
                 next.wifi_status === base.wifi_status &&
                 next.wifi_rssi === base.wifi_rssi &&
@@ -262,20 +274,29 @@ export default function SlotDashboard() {
 
               // sync DB เฉพาะตอน edge เปลี่ยนจริง
               const edgeChanged = base.is_open !== next.is_open;
-              if (edgeChanged) {
+              const capChanged =
+                (next.capacity_mm ?? null) !== (base.capacity_mm ?? null) &&
+                Math.abs((next.capacity_mm ?? 0) - (base.capacity_mm ?? 0)) >= 1; // ตั้ง threshold ได้ เช่น 1 หรือ 5 mm
+
+              // sync DB ถ้า edge เปลี่ยน หรือ capacity เปลี่ยน
+              if (edgeChanged || capChanged) {
                 syncSlotStateToDB(
                   next.slot_id,
                   {
-                    is_open: next.is_open,
-                    capacity: next.capacity ?? undefined,
+                    is_open: edgeChanged ? next.is_open : undefined, // เขียนเฉพาะที่จำเป็น
+                    capacity_mm: capChanged ? next.capacity_mm ?? undefined : undefined,
                     sensor_status: next.sensor_status,
                     wifi_status: next.wifi_status,
                     wifi_rssi: next.wifi_rssi ?? undefined,
                     ip_addr: next.ip_addr ?? undefined,
                     last_seen_at: next.last_seen_at ?? undefined,
                   },
-                  { force: true }
+                  { force: edgeChanged } // ขอบประตูเปลี่ยน → force, ส่วน capacity ใช้ throttle ปกติ
                 );
+
+                // ดึง % จาก view มายัด state (DB เป็นคนคำนวณ)
+                refreshPercentFromView(next.slot_id);
+
               }
 
               return next;
@@ -308,9 +329,9 @@ export default function SlotDashboard() {
               raw: payload ?? null,
             })
             .then(
-    () => {},
-    (err: unknown) => console.error("insert warnings error:", err)
-  );
+              () => { },
+              (err: unknown) => console.error("insert warnings error:", err)
+            );
         }
       },
       { replayLast: true }
@@ -328,12 +349,13 @@ export default function SlotDashboard() {
       setErr(null);
       try {
         const { data, error } = await supabase
-          .from(TBL.slots)
+          .from("v_slots") // << ดึงจาก view
           .select(
-            "slot_id,node_id,connection_status,capacity,is_open,sensor_status,wifi_status,wifi_rssi,ip_addr,last_sensor_at,last_seen_at"
+            "slot_id,node_id,connection_status,capacity_mm,capacity_percent,is_open,sensor_status,wifi_status,wifi_rssi,ip_addr,last_sensor_at,last_seen_at"
           )
           .eq("slot_id", slotId)
           .maybeSingle();
+
         if (error) throw error;
         if (!active) return;
 
@@ -383,17 +405,36 @@ export default function SlotDashboard() {
   }, [slot?.is_open, awaitingClose]);
 
   // raw capacity (0–250) → %
-  const raw = Number(slot?.capacity);
-  const MAX_RAW = 250;
+  // const raw = Number(slot?.capacity);
+  // const MAX_RAW = 250;
 
-  const progress = useMemo(() => {
-    if (!Number.isFinite(raw)) return 0;
-    const percent = (raw / MAX_RAW) * 100;
-    return Math.max(0, Math.min(100, Math.round(percent)));
-  }, [raw]);
+  // const progress = useMemo(() => {
+  //   if (!Number.isFinite(raw)) return 0;
+  //   const percent = (raw / MAX_RAW) * 100;
+  //   return Math.max(0, Math.min(100, Math.round(percent)));
+  // }, [raw]);
 
-  // capacity → "xx / 100"
-  const capacityText = Number.isFinite(raw) ? `${progress} / 100` : "—";
+  // // capacity → "xx / 100"
+  // const capacityText = Number.isFinite(raw) ? `${progress} / 100` : "—";
+
+  // const MAX_MM = 250;
+  // const mmToPercent = (mm?: number | null) =>
+  //   mm == null || !Number.isFinite(mm) ? null
+  //     : Math.max(0, Math.min(100, Math.round((mm / MAX_MM) * 100)));
+
+  // const raw = Number(slot?.capacity_mm);
+  // const progress = slot?.capacity_percent ?? 0;
+  // const capacityText = Number.isFinite(progress) ? `${progress} / 100` : "—";
+
+  //const nextPercent = mmToPercent(nextMm);
+  const { percent: progress, text: capacityText } = useCapacity({
+    capacity_percent: slot?.capacity_percent,
+    capacity_mm: slot?.capacity_mm,
+    capacity: (slot as any)?.capacity,
+  });
+
+  //const capacityText = formatCapacityText(progress);
+
 
   // ===== ACTION: OPEN (จริง ๆ คือ UNLOCK ตามสเปค) =====
   async function openSlot() {

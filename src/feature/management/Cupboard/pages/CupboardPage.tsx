@@ -161,7 +161,7 @@ export default function CupboardPage({
                       <Grid item key={slot.slotId}>
                         <ManageItemCard
                           title={slot.slotId}
-                          percentage={slot.capacity ?? 0}
+                          percentage={slot.capacityPercent ?? 0}
                           status={slot.connectionStatus}
                           onClick={() =>
                             navigate(`/app/management/cupboard/${slot.slotId}`, {
