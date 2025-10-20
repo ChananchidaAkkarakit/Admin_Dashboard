@@ -10,7 +10,7 @@ export type Slot = {
   teacherId: string | null;
   capacityPercent: number | null;
   capacityMm: number | null;
-  connectionStatus: "active" | "inactive";   // 👈 fix type ให้ตรง
+  connectionStatus: "online" | "offline" | "unknown";
   teacherName?: string | null;
 };
 
@@ -30,17 +30,37 @@ export const useSlotContext = () => {
   if (!ctx) throw new Error("useSlotContext must be used within SlotProvider");
   return ctx;
 };
+// เพิ่ม helper ไฟล์นี้
+function normalizeUiConnFromView(v: any): "online" | "offline" | "unknown" {
+  const s = String(v ?? "").trim().toLowerCase();
+  if (s === "active" || s === "online" || s === "connected") return "online";
+  if (s === "inactive" || s === "offline" || s === "disconnected") return "offline";
+  return "unknown";
+}
 
 function mapRow(r: any): Slot {
   return {
     slotId: r.slot_id,
     cupboardId: r.cupboard_id,
     teacherId: r.teacher_id,
-    capacityPercent: r.capacity_percent ?? null,  // ✅ เอาค่านี้ไปใช้ทุกหน้า
+    capacityPercent: r.capacity_percent ?? null,
     capacityMm: r.capacity_mm ?? null,
-    connectionStatus: r.connection_status,
+    connectionStatus: normalizeUiConnFromView(r.connection_status), // ✅ normalize ที่เดียว
+    teacherName: r.teacher_name_thai ?? r.teacher_name_eng ?? null
   };
 }
+
+// function mapRow(r: any): Slot {
+//   return {
+//     slotId: r.slot_id,
+//     cupboardId: r.cupboard_id,
+//     teacherId: r.teacher_id,
+//     capacityPercent: r.capacity_percent ?? null,  // ✅ เอาค่านี้ไปใช้ทุกหน้า
+//     capacityMm: r.capacity_mm ?? null,
+//     connectionStatus: r.connection_status ?? "unknown", // v_slots ส่ง online/offline/unknown
+//     teacherName: r.teacher_name_thai ?? r.teacher_name_eng ?? null
+//   };
+// }
 
 export const SlotProvider = ({ children }: { children: ReactNode }) => {
   const [slots, setSlots] = useState<Slot[]>([]);
@@ -53,7 +73,7 @@ export const SlotProvider = ({ children }: { children: ReactNode }) => {
     // ถ้าไม่มี ให้เปลี่ยนเป็น .from("v_slots") แล้ว order ด้วย cupboard_id, slot_id
     const { data, error } = await supabase
       .from("v_slots")
-      .select("slot_id,cupboard_id,teacher_id,capacity_mm,capacity_percent,connection_status,is_open,last_seen_at")
+      .select("slot_id,cupboard_id,teacher_id,capacity_mm,capacity_percent,connection_status,is_open,last_seen_at,teacher_name_thai,teacher_name_eng")
       .order("cupboard_id")
       .order("slot_id");
 
@@ -87,7 +107,7 @@ export const SlotProvider = ({ children }: { children: ReactNode }) => {
       .eq("slot_id", slotId);
     if (error) throw error;
     setSlots(prev =>
-      prev.map(s => s.slotId === slotId ? { ...s, connectionStatus: status ? "active" : "inactive" } : s)
+      prev.map(s => s.slotId === slotId ? { ...s, connectionStatus: status ? "online" : "offline" } : s)
     );
   }, []);
 
@@ -100,25 +120,30 @@ export const SlotProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   // เพิ่มช่องใหม่: ตารางจริง 'slots.capacity' เก็บเป็น mm (raw)
-  const addSlot = useCallback(
-    async (teacherId: string, on: boolean, capacityMm = 60) => {
-      const { data, error } = await supabase
-        .from("slots")
-        .insert({
-          teacher_id: teacherId.toUpperCase(),
-          capacity: capacityMm,                    // mm ลงตารางจริง
-          connection_status: on ? "active" : "inactive",
-        })
-        .select("slot_id,cupboard_id")
-        .single();
+// ✅ ให้ตรงกับ CHECK ใน DB
+type ConnectionStatus = 'active' | 'inactive';
 
-      if (error) throw error;
+const addSlot = useCallback(
+  async (teacherId: string, on: boolean, capacityMm = 60) => {
+    const { data, error } = await supabase
+      .from('slots')
+      .insert({
+        teacher_id: teacherId.toUpperCase(),
+        capacity_mm: Math.max(0, Math.floor(capacityMm)),   // ← เก็บ mm ลงช่องที่ถูกต้อง
+        connection_status: on ? 'active' : 'inactive',      // ✅ map boolean -> string ที่ DB ยอมรับ
+        
+      })
+      .select('slot_id,cupboard_id')
+      .single();
 
-      await refresh(); // realtime มีอยู่แล้ว จะเอาออกก็ได้
-      return { slotId: data!.slot_id, cupboardId: data!.cupboard_id };
-    },
-    [refresh]
-  );
+    if (error) throw error;
+
+    await refresh();
+    return { slotId: data!.slot_id, cupboardId: data!.cupboard_id };
+  },
+  [refresh]
+);
+
 
   const value: SlotContextType = { slots, loading, refresh, updateSlotStatus, updateTeacher, addSlot };
   return <SlotContext.Provider value={value}>{children}</SlotContext.Provider>;

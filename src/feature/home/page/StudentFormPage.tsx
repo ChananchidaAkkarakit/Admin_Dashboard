@@ -4,6 +4,7 @@ import { Box, Button, Container, Stack, TextField, Typography, Alert, Divider } 
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../../supabaseClient";
 import ArrowBackIcon from "../../../assets/icons/arrow-back.svg?react";
+import { normalizeStudentId /*, formatStudentIdWithDashes*/ } from "../../../utils/normalizeStudentId";
 
 export default function StudentFormPage() {
   const navigate = useNavigate();
@@ -25,7 +26,12 @@ export default function StudentFormPage() {
     e.preventDefault();
     setError(null);
 
-    const sid = form.studentId.trim();
+    const sid = normalizeStudentId(form.studentId);
+if (!sid) {
+  setError("รหัสนักศึกษาต้องเป็นตัวเลข 13 หลัก (เช่น 1165104005905)");
+  return;
+}
+
     const nameThai = form.nameThai.trim();
     const nameEng = form.nameEng.trim();
     const tel = form.tel.trim() || null;
@@ -41,17 +47,18 @@ export default function StudentFormPage() {
       setSubmitting(true);
 
       const { error } = await supabase.rpc("add_student_with_user", {
-        p_student_id: sid,
-        p_name_thai: nameThai,
-        p_name_eng: nameEng,
-        p_enroll_year: enrollYear,
-        p_tel: tel,
-        p_email: email,
-      });
+  p_student_id: sid, // ✅ digits only
+  p_name_thai: nameThai,
+  p_name_eng: nameEng,
+  p_enroll_year: enrollYear,
+  p_tel: tel,
+  p_email: email,
+});
+
 
       if (error) throw error;
 
-      navigate("/app/registration", { state: { refresh: true } });
+      navigate("/app/home", { state: { refresh: true } });
     } catch (e: any) {
       // โชว์ข้อความชัดเจนขึ้น
       const msg = e?.message || "";
@@ -168,7 +175,7 @@ export default function StudentFormPage() {
                 }}
               />
               <Typography fontWeight={600} color="primary">
-                Student ID (Specify the dash (-))
+                Student ID (No need to Specify a dash (-))
                 <Typography component="span" color="error"> *</Typography>
               </Typography>
               <Box sx={{ display: "flex", alignItems: "center" }}>

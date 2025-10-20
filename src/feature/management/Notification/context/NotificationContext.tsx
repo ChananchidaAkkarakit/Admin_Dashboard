@@ -1,5 +1,4 @@
 // src/contexts/NotificationContext.ts
-
 import {
   createContext,
   useContext,
@@ -7,14 +6,14 @@ import {
   useEffect,
   type ReactNode,
 } from "react";
-import type { Notification } from "../../../../../../backend/src/mock/types"; // 🟡 ปรับ path ให้ตรงกับที่ใช้จริง
-import { fetchNotifications } from "../../../../api/notifications"; // ✅ mock หรือ API จริงก็ได้
+import type { Notification } from "@shared/notifications";
+import { fetchNotifications } from "../../../../api/notifications";
 
 type NotificationContextType = {
   notifications: Notification[];
   loading: boolean;
   error: string | null;
-  markAsRead: (id: string) => void;
+  markAsRead: (id: string) => void;   // สำหรับ UI ภายใน context เท่านั้น
   addNotification: (item: Notification) => void;
 };
 
@@ -25,12 +24,11 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // ดึงข้อมูลแจ้งเตือนครั้งแรก
   useEffect(() => {
     const load = async () => {
       try {
         const data = await fetchNotifications();
-        setNotifications(data);
+        setNotifications(data ?? []);
         setError(null);
       } catch (err: any) {
         setError("ไม่สามารถโหลดแจ้งเตือนได้");
@@ -38,21 +36,18 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
         setLoading(false);
       }
     };
-
     load();
   }, []);
 
   const markAsRead = (id: string) => {
+    // NOTE: ถ้าอยากผูกกับ notification instance จริง ต้องอัปเดตผ่าน Supabase
     setNotifications((prev) =>
-      prev.map((item) =>
-        item.messageId === id ? { ...item, isRead: true } : item
-      )
+      prev.map((n) => (n.messageId === id ? { ...n, status: false } : n))
     );
   };
 
   const addNotification = (item: Notification) => {
     setNotifications((prev) => {
-      // ป้องกัน duplicate id
       if (prev.find((n) => n.messageId === item.messageId)) return prev;
       return [item, ...prev];
     });

@@ -129,56 +129,60 @@ export default function CupboardPage({
               // ✅ เรียงตู้
               .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
               .map(([cupboardId, group]) => (
-              <Box
-                key={cupboardId}
-                sx={{
-                  mt: 2,
-                  width: 305,
-                  minHeight: 396,
-                  borderRadius: "20px",
-                  border: "2px solid #CBDCEB",
-                  flex: "0 0 auto",
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "space-start",
-                }}
-              >
-                <Typography variant="h6" color="primary" fontSize="25px" fontStyle="italic" align="center">
-                  {cupboardId}
-                </Typography>
-
-                <Grid
-                  container
-                  spacing={2.5}
-                  mb={2}
-                  pl={group.length === 1 ? "10px" : "center"}
-                  justifyContent={group.length === 1 ? "flex-start" : "center"}
+                <Box
+                  key={cupboardId}
+                  sx={{
+                    mt: 2,
+                    width: 305,
+                    minHeight: 396,
+                    borderRadius: "20px",
+                    border: "2px solid #CBDCEB",
+                    flex: "0 0 auto",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-start",
+                  }}
                 >
-                  {[...group]
-                    // ✅ เรียงช่องในแต่ละตู้
-                    .sort((a, b) => a.slotId.localeCompare(b.slotId, undefined, { numeric: true }))
-                    .map(slot => (
-                      <Grid item key={slot.slotId}>
-                        <ManageItemCard
-                          title={slot.slotId}
-                          percentage={slot.capacityPercent ?? 0}
-                          status={slot.connectionStatus}
-                          onClick={() =>
-                            navigate(`/app/management/cupboard/${slot.slotId}`, {
-                              state: {
-                                slotId: slot.slotId,
-                                cupboardId: slot.cupboardId,
-                                teacherId: slot.teacherId,
-                                connectionStatus: slot.connectionStatus,
-                              },
-                            })
-                          }
-                        />
-                      </Grid>
-                    ))}
-                </Grid>
-              </Box>
-            ))}
+                  <Typography variant="h6" color="primary" fontSize="25px" fontStyle="italic" align="center">
+                    {cupboardId}
+                  </Typography>
+
+                  <Grid
+                    container
+                    spacing={2.5}
+                    mb={2}
+                    pl={group.length === 1 ? "10px" : "center"}
+                    justifyContent={group.length === 1 ? "flex-start" : "center"}
+                  >
+                    {[...group]
+                      // ✅ เรียงช่องในแต่ละตู้
+                      .sort((a, b) => a.slotId.localeCompare(b.slotId, undefined, { numeric: true }))
+                      .map(slot => (
+                        <Grid item key={slot.slotId}>
+                          <ManageItemCard
+                            title={slot.slotId}
+                            percentage={slot.capacityPercent ?? 0}
+                            status={
+                              slot.connectionStatus === 'online'
+                                ? 'active'
+                                : 'inactive'                     // unknown → inactive ชั่วคราว
+                            }
+                            onClick={() =>
+                              navigate(`/app/management/cupboard/${slot.slotId}`, {
+                                state: {
+                                  slotId: slot.slotId,
+                                  cupboardId: slot.cupboardId,
+                                  teacherId: slot.teacherId,
+                                  connectionStatus: slot.connectionStatus,
+                                },
+                              })
+                            }
+                          />
+                        </Grid>
+                      ))}
+                  </Grid>
+                </Box>
+              ))}
           </Box>
         </Box>
       </Box>

@@ -101,7 +101,7 @@ export default function ProfileImageUploader({ profileImage, setProfileImage, on
                 <MenuItem onClick={onPreview}
                     sx={{
                         py: 1,
-                        color: "#7A7A7A", // สีฟ้าเzข้ม
+                        color: "#7A7A7A", // สีฟ้าเข้ม
                         "&:hover": {
                             bgcolor: "#ECF6FF",
                             fontWeight: "500",
@@ -111,7 +111,7 @@ export default function ProfileImageUploader({ profileImage, setProfileImage, on
                 <MenuItem onClick={handleChangeImage}
                     sx={{
                         py: 1,
-                        color: "#7A7A7A", // สีฟ้าเzข้ม
+                        color: "#7A7A7A", // สีฟ้าเข้ม
                         "&:hover": {
                             bgcolor: "#ECF6FF",
                             fontWeight: "500",

@@ -6,6 +6,12 @@ import ArrowBackIcon from "../../../assets/icons/arrow-back.svg?react";
 import ManageItemCard from "../../management/Cupboard/components/ManageItemCard";
 import { useSlotContext } from "../../management/Cupboard/contexts/SlotContext";
 
+// ด้านบนไฟล์ เพิ่ม helper คำนวณ % จาก mm เผื่อ capacityPercent เป็น null
+const MAX_MM = 205;
+const mmToPercent = (mm?: number | null) =>
+    mm == null || !Number.isFinite(mm) ? 0
+        : Math.max(0, Math.min(100, Math.round((mm / MAX_MM) * 100)));
+
 // 👇 ช่วยคำนวณ % จาก mm (0–250 → 0–100)
 // const MAX_MM = 250;
 // const mmToPercent = (mm?: number | null) =>
@@ -102,10 +108,17 @@ export default function MonitoringAllItemsPage() {
 
                                                 return (
                                                     <Grid item key={slot.slotId}>
+                                                        
                                                         <ManageItemCard
                                                             title={slot.slotId}
-                                                            percentage={slot.capacityPercent ?? 0}   // ✅ ตรงนี้ไม่ต้องแปลงเองแล้ว
-                                                            status={slot.connectionStatus}
+                                                            percentage={
+                                                                slot.capacityPercent ?? mmToPercent(slot.capacityMm) ?? 0
+                                                            }
+                                                            status={
+                                                                slot.connectionStatus === 'online'
+                                                                    ? 'active'
+                                                                    : 'inactive' // unknown → inactive ชั่วคราว (ถ้ามีสถานะที่ 3 ในการ์ดค่อยเปลี่ยน)
+                                                            }
                                                             onClick={() =>
                                                                 navigate(`/app/monitoring/slot/${slot.slotId}`, {
                                                                     state: {
@@ -117,6 +130,7 @@ export default function MonitoringAllItemsPage() {
                                                                 })
                                                             }
                                                         />
+
                                                     </Grid>
                                                 );
                                             })}

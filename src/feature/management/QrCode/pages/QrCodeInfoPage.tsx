@@ -1,4 +1,4 @@
-import React, {useEffect }from "react";
+import React, { useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useState } from "react";
 import {
@@ -7,7 +7,7 @@ import {
     TextField,
     Switch,
     FormControlLabel,
-    
+
     Button,
     Dialog,
     DialogActions,
@@ -18,7 +18,7 @@ import ArrowBackIcon from "../../../../assets/icons/arrow-back.svg?react";
 import SideProfilePanel from "../../../home/components/SideProfilePanel";
 import { useQRCodeContext } from ".././contexts/QRCodeContext";
 import type { EnrichedQRCodeSlot as QRCodeSlot } from "../../../../../../backend/src/mock/types";
-import axios from "axios";
+import { supabase } from "../../../../supabaseClient";
 
 type LogEntry = {
     timestamp: string;
@@ -45,43 +45,109 @@ export default function QrCodeInfoPage({
     setProfileImage,
 }: QrCodeInfoPageProps) {
     const navigate = useNavigate();
-//const { slotId } = useParams();
+    //const { slotId } = useParams();
     const location = useLocation();
     const slot = location.state as QRCodeSlot;
     const { updateSlotStatus } = useQRCodeContext(); // หรือ useSlotContext()
+
+    //nst [pendingTeacher, setPendingTeacher] = useState<string>(slot.teacherId ?? "");
+    const [enrichedTeacherName, setEnrichedTeacherName] = useState<string>(""); // ใช้ fallback แสดงชื่อ
     type Teacher = { id: string; name: string };
     const [teacherList, setTeacherList] = useState<Teacher[]>([]);
-    type RawTeacher = {
-        teacherId: string;
-        teacherName: string;
-    };
-    
-    useEffect(() => {
-        axios.get<RawTeacher[]>("http://localhost:4000/api/teachers")
-            .then((res) => {
-                console.log("✅ Teachers from API:", res.data); // 👈 ดูใน console
-                const data = res.data.map((t) => ({
-                    id: t.teacherId,
-                    name: t.teacherName,
-                }));
-                setTeacherList(data);
-            })
-            .catch((err) => {
-                console.error("Failed to load teachers:", err);
-            });
-    }, []);
 
-    if (!slot) {
-        return <Box p={3}><Typography color="error">ไม่พบข้อมูล QR Code</Typography></Box>;
-    }
-    
+
     //const [teacherId, setTeacherId] = useState(slot.teacherId);         // ค่าปัจจุบัน
-    const [pendingTeacher, setPendingTeacher] = useState(slot.teacherId);
+    //const [pendingTeacher, setPendingTeacher] = useState<string>(slot.teacherId ?? "");
     const [logs, setLogs] = useState<LogEntry[]>([]);
-    const [prevStatus, setPrevStatus] = useState(slot.connectionStatus === "active");
-
+    // const [prevStatus, setPrevStatus] = useState(slot.connectionStatus === "active");
     const [logOpen, setLogOpen] = useState(false);
+    // const [status, setStatus] = useState(slot.connectionStatus === "active");
+    // const teacherName =
+    //     teacherList.find(t => t.id === (pendingTeacher ?? ""))?.name ?? "-";
+    const [qrId, setQrId] = useState<string>(slot.qrId ?? "");
+    const [pendingTeacher, setPendingTeacher] = useState<string>(slot.teacherId ?? "");
+    const [teacherName, setTeacherName] = useState<string>("-");
     const [status, setStatus] = useState(slot.connectionStatus === "active");
+    const [prevStatus, setPrevStatus] = useState(slot.connectionStatus === "active");
+    const teacherInfoValue =
+        (pendingTeacher && pendingTeacher.trim() !== "" ? pendingTeacher : "-") +
+        "          | " +
+        teacherName;
+    async function fetchQrIdForSlot(slotId: string): Promise<string> {
+        const sid = (slotId || "").trim();
+        if (!sid) return "";
+
+        const { data, error } = await supabase
+            .from("qrcodes")
+            .select("qr_id")
+            .eq("slot_id", sid)
+            .order("created_at", { ascending: false }) // ถ้ามีหลายเรคคอร์ด เลือกตัวล่าสุด
+            .limit(1)
+            .maybeSingle();
+
+        if (error) {
+            console.error("fetchQrIdForSlot error:", error);
+            return "";
+        }
+        return data?.qr_id ?? "";
+    }
+
+    useEffect(() => {
+        if (!slot?.slotId) return;
+
+        (async () => {
+            // 1) slots (คงไว้ตามเดิมถ้าต้องใช้)
+            const { data: slotRow, error: slotErr } = await supabase
+                .from("slots")
+                .select("slot_id, cupboard_id, teacher_id, connection_status")
+                .eq("slot_id", slot.slotId)
+                .maybeSingle();
+            if (slotErr) console.error("slots error:", slotErr);
+
+            // 2) qrcodes: ❗อย่าใช้ maybeSingle ที่นี่ — ใช้ array + แถวแรก
+            const { data: qrRows, error: qrErr } = await supabase
+                .from("qrcodes")
+                .select("qr_id, teacher_id, is_active, created_at")
+                .eq("slot_id", slot.slotId)
+                .order("created_at", { ascending: false })
+                .limit(1);
+                console.log("qrErr:", qrErr, "qrRows:", qrRows); // << ถ้า RLS บล็อก จะไม่มี error แต่ qrRows = []
+                console.log("slotId:", JSON.stringify(slot.slotId));
+
+            if (qrErr) console.error("qrcodes error:", qrErr);
+
+            const qrRow = Array.isArray(qrRows) && qrRows.length ? qrRows[0] : null;
+
+            // ตั้งค่า qrId จากผลลัพธ์ (จะรีแรนเดอร์แน่ๆ)
+            setQrId(qrRow?.qr_id ?? "");
+
+            // อัปเดตสถานะสวิตช์หากมี is_active ใน qrcodes
+            if (typeof qrRow?.is_active === "boolean") {
+                setStatus(qrRow.is_active);
+                setPrevStatus(qrRow.is_active);
+            }
+
+            // 3) หา teacherId (ให้ slots ก่อน, ไม่มีก็ใช้ qrcodes)
+            const teacherId = slotRow?.teacher_id ?? qrRow?.teacher_id ?? null;
+
+            if (teacherId) {
+                const { data: u, error: uErr } = await supabase
+                    .from("users")
+                    .select("teacher_id, name_thai, name_eng")
+                    .eq("teacher_id", teacherId)
+                    .maybeSingle();
+                if (uErr) console.error("users error:", uErr);
+
+                setTeacherName(u?.name_thai ?? u?.name_eng ?? "-");
+                setPendingTeacher(teacherId);
+            } else {
+                setTeacherName("-");
+                setPendingTeacher("");
+            }
+        })();
+    }, [slot?.slotId]);
+
+
     return (
         <Box
             sx={{
@@ -150,7 +216,7 @@ export default function QrCodeInfoPage({
                             Cupboard_id
                         </Typography>
                         <TextField
-                            value={slot.cupboardId}
+                            value={slot.cupboardId ?? ""}
                             fullWidth
                             margin="dense"
                             variant="standard"
@@ -185,7 +251,7 @@ export default function QrCodeInfoPage({
                         <Box sx={{ display: "flex", alignItems: "center" }}>
                             {/* TextField ด้านซ้าย */}
                             <TextField
-                                value={slot.slotId}
+                                value={slot.slotId ?? ""}
                                 fullWidth
                                 margin="dense"
                                 variant="standard"
@@ -221,7 +287,7 @@ export default function QrCodeInfoPage({
                         <Box sx={{ display: "flex", alignItems: "center" }}>
                             {/* TextField ด้านซ้าย */}
                             <TextField
-                                value={`${pendingTeacher}          | ${teacherList.find(t => t.id === pendingTeacher)?.name || ""}`}
+                                value={teacherInfoValue}
                                 fullWidth
                                 margin="dense"
                                 variant="standard"
@@ -256,14 +322,11 @@ export default function QrCodeInfoPage({
                         <Box sx={{ display: "flex", alignItems: "center" }}>
                             {/* TextField ด้านซ้าย */}
                             <TextField
-                                value={slot.qrId}
+                                value={qrId || ""}        // เดิม: value={slot.qrId}
                                 fullWidth
                                 margin="dense"
                                 variant="standard"
-                                InputProps={{
-                                    readOnly: true,
-                                    disableUnderline: true,
-                                }}
+                                InputProps={{ readOnly: true, disableUnderline: true }}
                                 sx={{
                                     flex: "1 1 240px",
                                     mx: 0.5,
@@ -371,7 +434,7 @@ export default function QrCodeInfoPage({
                             color="error"
                             onClick={() => {
                                 setStatus(slot.connectionStatus === "active");
-                                setPendingTeacher(slot.teacherId);
+                                setPendingTeacher(slot.teacherId ?? "");  // ✅ บังคับเป็น string
                             }}
                             disabled={
                                 status === (slot.connectionStatus === "active") &&
@@ -399,27 +462,44 @@ export default function QrCodeInfoPage({
                         <Button
                             variant="contained"
                             disabled={status === prevStatus}
-                            onClick={() => {
-                                // 👇 เรียกอัปเดต context จริง
-                                updateSlotStatus(slot.slotId, status); // ✅ ต้องมีฟังก์ชันนี้จาก context
+                            onClick={async () => {
+                                let id = (qrId || "").trim();
+                                if (!id) {
+                                    // fallback ดึงอีกรอบ (กรณีผู้ใช้เข้าหน้านี้เร็วมาก)
+                                    const { data: rows } = await supabase
+                                        .from("qrcodes")
+                                        .select("qr_id")
+                                        .eq("slot_id", slot.slotId)
+                                        .order("created_at", { ascending: false })
+                                        .limit(1);
+                                    id = Array.isArray(rows) && rows.length ? rows[0].qr_id : "";
+                                    setQrId(id);
+                                }
+                                if (!id) {
+                                    alert("ไม่พบ QRCode_id สำหรับช่องนี้");
+                                    return;
+                                }
 
+                                const { error } = await supabase
+                                    .from("qrcodes")
+                                    .update({ is_active: status })
+                                    .eq("qr_id", id);
+
+                                if (error) {
+                                    alert("อัปเดตไม่สำเร็จ: " + error.message);
+                                    return;
+                                }
+
+                                setLogs(prev => [...prev, {
+                                    timestamp: new Date().toLocaleString(),
+                                    type: "qrStatus",
+                                    message: `QR Code ถูก${status ? "เปิดใช้งาน" : "ปิดใช้งาน"}`
+                                }]);
+                                setPrevStatus(status);
                                 alert(`QR Code ${status ? "เปิดใช้งาน" : "ปิดใช้งาน"} แล้ว`);
-
-                                // 👇 เพิ่ม log
-                                setLogs(prev => [
-                                    ...prev,
-                                    {
-                                        timestamp: new Date().toLocaleString(),
-                                        type: "qrStatus",
-                                        message: `QR Code ถูก${status ? "เปิดใช้งาน" : "ปิดใช้งาน"}`
-                                    }
-                                ]);
-
-                                // 👇 อัปเดตสถานะภายใน local state
-                                setPrevStatus(status); // ใช้เพื่อควบคุมปุ่ม Reset และ Apply
-
-                                // ถ้าคุณใช้ slot.connectionStatus แบบสด (จาก context) ควร refetch ที่ parent component หรือ context ด้วย
                             }}
+
+
                             sx={{
                                 borderRadius: "25px",
                                 fontSize: "20px",

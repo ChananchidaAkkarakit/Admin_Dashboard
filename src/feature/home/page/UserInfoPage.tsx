@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -9,21 +9,16 @@ import {
   Switch,
   FormControlLabel,
   Button,
-  //IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  // Menu,
-  // MenuItem
 } from "@mui/material";
 import UserIcon from "../../../assets/icons/user.svg?react";
 import SideProfilePanel from "../components/SideProfilePanel";
-//import RegistrationSearch from "../components/RegistrationSearch";
 import ArrowBackIcon from "../../../assets/icons/arrow-back.svg?react";
-//import { Color } from "antd/es/color-picker";
-//import UserMenuIcon from "../../../assets/icons/moremenu.svg?react"
-import DeleteIcon from "../../../assets/icons/bin.svg?react"
+import DeleteIcon from "../../../assets/icons/bin.svg?react";
+import { supabase } from "../../../supabaseClient";
 
 interface UserItem {
   id: number;
@@ -34,6 +29,7 @@ interface UserItem {
   email?: string | null;
   subjects?: string[];
   studentId?: string;
+  teacherId?: string;
 }
 
 type UserInfoPageProps = {
@@ -47,30 +43,140 @@ export default function UserInfoPage({
   profileImage,
   setProfileImage,
 }: UserInfoPageProps) {
+  // ใช้คอลัมน์ 'status'
+  const ENABLE_FIELD: "status" = "status";
+  const ENABLE_ON = "active";
+  const ENABLE_OFF = "inactive";
+
   const { state } = useLocation() as { state: UserItem };
+
+  // รายวิชาของอาจารย์
+  const [teacherSubjects, setTeacherSubjects] = useState<string[]>([]);
+  const [loadingSubjects, setLoadingSubjects] = useState(false);
+  const [subjectsErr, setSubjectsErr] = useState<string | null>(null);
+
   const navigate = useNavigate();
-  const [checked, setChecked] = React.useState(false);
-  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setChecked(event.target.checked);
+
+  // Toggle enable/disable
+  const [checked, setChecked] = useState(false);
+
+  // เลือกวิชา (ยังไม่ได้ใช้ใน UI แต่คงไว้ตามโค้ดเดิม)
+  const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(null);
+
+  // ลบ
+  const [openDialog, setOpenDialog] = useState(false);
+
+  // 👉 helper: หา table/key/id จาก role
+  const roleInfo = useMemo(() => {
+    if (state.role === "teacher") {
+      return { table: "teachers", key: "teacher_id", id: String(state.teacherId ?? "") } as const;
+    }
+    return { table: "students", key: "student_id", id: String(state.studentId ?? "") } as const;
+  }, [state.role, state.teacherId, state.studentId]);
+
+  // โหลดค่า status + รายวิชา (ถ้าเป็นอาจารย์)
+  useEffect(() => {
+    async function loadData() {
+      const { table, key, id } = roleInfo;
+      if (!id) return;
+
+      // 1) โหลดสถานะ enable/disable
+      const { data: one, error: stErr } = await supabase
+        .from(table)
+        .select(ENABLE_FIELD)
+        .eq(key, id)
+        .maybeSingle();
+
+      if (!stErr && one) {
+        setChecked(one[ENABLE_FIELD] === ENABLE_ON);
+      }
+
+      // 2) ถ้าเป็นอาจารย์ → โหลดรายวิชา
+      if (state.role !== "teacher" || !state.teacherId) return;
+
+      setLoadingSubjects(true);
+      setSubjectsErr(null);
+
+      const { data: ts, error: tsErr } = await supabase
+        .from("teacher_subjects")
+        .select("subject_id")
+        .eq("teacher_id", state.teacherId);
+
+      if (tsErr) {
+        setSubjectsErr(tsErr.message);
+        setLoadingSubjects(false);
+        return;
+      }
+
+      const ids = (ts ?? []).map((r) => r.subject_id);
+      if (ids.length === 0) {
+        setTeacherSubjects([]);
+        setLoadingSubjects(false);
+        return;
+      }
+
+      const { data: subs, error: subsErr } = await supabase
+        .from("subjects")
+        .select("subject_id, subject_name")
+        .in("subject_id", ids);
+
+      if (subsErr) {
+        setSubjectsErr(subsErr.message);
+        setLoadingSubjects(false);
+        return;
+      }
+
+      setTeacherSubjects(subs.map((s) => s.subject_name));
+      setLoadingSubjects(false);
+    }
+
+    loadData();
+  }, [roleInfo, state.role, state.teacherId]);
+
+  // 👉 Toggle: อัปเดต DB ด้วย
+  const handleChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const next = event.target.checked;
+    setChecked(next);
+
+    const { table, key, id } = roleInfo;
+    if (!id) return;
+
+    const { error } = await supabase
+      .from(table)
+      .update({ [ENABLE_FIELD]: next ? ENABLE_ON : ENABLE_OFF })
+      .eq(key, id);
+
+    if (error) {
+      // rollback ถ้าอัปเดตไม่สำเร็จ
+      setChecked(!next);
+      alert("อัปเดตสถานะไม่สำเร็จ: " + error.message);
+    }
   };
 
-  const [openDialog, setOpenDialog] = React.useState(false);
-  //const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
-  // const open = Boolean(anchorEl);
+  // 👉 ลบจริงใน DB (ถ้าเป็นอาจารย์ ลบ mapping ก่อน)
+  const handleDelete = async () => {
+    const { table, key, id } = roleInfo;
+    if (!id) {
+      alert("ไม่พบรหัสอ้างอิงเพื่อลบ");
+      setOpenDialog(false);
+      return;
+    }
 
-  // const handleClick = (event: React.MouseEvent<HTMLElement>) => {
-  //   setAnchorEl(event.currentTarget); // ใช้ตำแหน่งของปุ่ม
-  // };
+    // ลบ mapping ของอาจารย์ก่อน (ถ้ามี)
+    if (state.role === "teacher") {
+      await supabase.from("teacher_subjects").delete().eq("teacher_id", id);
+    }
 
-  // const handleClose = () => {
-  //   setAnchorEl(null);
-  // };
-
-  const handleDelete = () => {
-    // 🔥 ส่วนนี้คือ action จริงเมื่อยืนยันลบ
-    console.log("Deleted", state.id);
-    // คุณสามารถเชื่อมกับ backend หรือ firebase ได้ที่นี่
+    const { error } = await supabase.from(table).delete().eq(key, id);
     setOpenDialog(false);
+
+    if (error) {
+      alert("ลบไม่สำเร็จ: " + error.message);
+      return;
+    }
+
+    // กลับหน้า Home พร้อม refresh
+    navigate("/app/home", { state: { refresh: true } });
   };
 
   return (
@@ -81,7 +187,6 @@ export default function UserInfoPage({
         width: "100%",
       }}
     >
-
       {/* Column ซ้าย */}
       <Box
         sx={{
@@ -90,7 +195,6 @@ export default function UserInfoPage({
           pr: { xs: 0, md: 0, lg: 3 },
         }}
       >
-
         {/* Title */}
         <Box
           sx={{
@@ -101,7 +205,7 @@ export default function UserInfoPage({
           }}
         >
           <ArrowBackIcon
-            onClick={() => navigate(-1)}
+            onClick={() => navigate("/app/home", { state: { refresh: true } })}
             style={{ width: 28, height: 28, cursor: "pointer" }}
           />
           <Typography
@@ -113,36 +217,9 @@ export default function UserInfoPage({
             Registration
           </Typography>
         </Box>
-        {/* 
-<RegistrationSearch/> */}
-        {/* Card */}
-        {/* <Box sx={{
-          display: "flex",
-          justifyContent: "end",
-          //p: 5
 
-        }}>
-          <Button
-            onClick={() => setOpenDialog(true)}
-            sx={{
-              //height: 36,
-              bgcolor: "#D41E1E",
-              color: "#fff",
-              fontSize: 18,
-              fontWeight: 500,
-              mx: 3,
-              borderRadius: 10,
-              "&:hover": {
-                bgcolor: "#fff",
-                color: "#D41E1E",
-                border: "1px solid #D41E1E",
-              },
-            }}
-          >
-           <DeleteIcon/>
-          </Button>
-        </Box> */}
-        <Card key={state.id}
+        <Card
+          key={state.id}
           sx={{
             mb: 2,
             bgcolor: "#D6E4EF",
@@ -151,37 +228,44 @@ export default function UserInfoPage({
             width: "100%",
             minHeight: 150,
             mx: "auto",
-          }}>
+          }}
+        >
           <CardContent>
-            <Box sx={{
-              flex: 1,
-              display: "flex",
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 2.5,
-              mb: 2,
-              position: "relative",
-              left: 10,
-            }}>
-              <Box sx={{
-                justifyContent: "center",
-                alignItems: "center",
-                display: "flex",
-                width: 65,
-                height: 65,
-                bgcolor: "#fff",
-                borderRadius: 20,
-              }}>
-                <UserIcon color="#133E87" style={{ width: 40, height: 40 }} />
-              </Box>
-              <Box sx={{
+            <Box
+              sx={{
                 flex: 1,
                 display: "flex",
-                flexDirection: "column",
-                alignItems: "start",
+                flexDirection: "row",
+                alignItems: "center",
                 justifyContent: "center",
-              }}>
+                gap: 2.5,
+                mb: 2,
+                position: "relative",
+                left: 10,
+              }}
+            >
+              <Box
+                sx={{
+                  justifyContent: "center",
+                  alignItems: "center",
+                  display: "flex",
+                  width: 65,
+                  height: 65,
+                  bgcolor: "#fff",
+                  borderRadius: 20,
+                }}
+              >
+                <UserIcon color="#133E87" style={{ width: 40, height: 40 }} />
+              </Box>
+              <Box
+                sx={{
+                  flex: 1,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "start",
+                  justifyContent: "center",
+                }}
+              >
                 <Box display="flex" alignItems="center" justifyContent="space-between">
                   {/* Left: Name */}
                   <Box>
@@ -192,32 +276,8 @@ export default function UserInfoPage({
                       {state.nameEng}
                     </Typography>
                   </Box>
-                  {/* Right: Switch */}
-                  {/* <Box sx={{
-                    display: "flex",
-                    justifyContent: "end",
-                    ml: 15
-                  }}>
-                    <IconButton
-                      onClick={handleClick}
-                      sx={{
-                        bgcolor: "#fff",
-                        width: 35,
-                        height: 35,
-                        "&:hover": {
-                          bgcolor: "#1852b1",
-                          boxShadow: 3,
-                          "& svg": { color: "#fff" },
-                        },
-                        "& svg": { color: "#1852b1" },
-                        transition: "0.2s",
-                      }}
-                    >
-                      <UserMenuIcon style={{ width: 25, height: 25 }} />
-                    </IconButton>
-                     */}
 
-                  {/* </Box> */}
+                  {/* Right: Switch */}
                   <FormControlLabel
                     label={checked ? "Enable" : "Disable"}
                     control={
@@ -264,10 +324,9 @@ export default function UserInfoPage({
                         color: "#133E87",
                       },
                       display: "flex",
-                      justifyContent: "flex-end",  // <-- ปรับให้ toggle อยู่ขวา
+                      justifyContent: "flex-end",
                     }}
                   />
-
                 </Box>
               </Box>
             </Box>
@@ -275,13 +334,15 @@ export default function UserInfoPage({
             <Divider sx={{ borderColor: "#fff", borderBottomWidth: "1px" }} />
             <Box sx={{ display: "flex", px: 2, mt: 1 }}>
               {state.role === "student" && (
-                <Box sx={{
-                  flex: 2,
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "flex-start",
-                  justifyContent: "start",
-                }}>
+                <Box
+                  sx={{
+                    flex: 2,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "flex-start",
+                    justifyContent: "start",
+                  }}
+                >
                   <Typography fontWeight="500" fontSize="20px" color="#133E87" gutterBottom>
                     Student ID :
                   </Typography>
@@ -290,40 +351,54 @@ export default function UserInfoPage({
                   </Typography>
                 </Box>
               )}
+
               {/* Subjects เฉพาะอาจารย์ */}
               {state.role === "teacher" && (
-                <Box sx={{
-                  flex: 2,
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "flex-start",
-                  justifyContent: "start",
-                }}>
+                <Box
+                  sx={{
+                    flex: 2,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "flex-start",
+                    justifyContent: "start",
+                  }}
+                >
                   <Typography fontWeight="500" fontSize="20px" color="#133E87" gutterBottom>
                     Subjects :
                   </Typography>
 
-                  {state.subjects?.map(subject => (
-                    <Typography
-                      key={subject} // ใช้ค่าจริงเป็น key
-                      fontWeight="300"
-                      fontSize="18px"
-                      color="#133E87"
-                    >
-                      {subject}
-                    </Typography>
-                  ))}
+                  {loadingSubjects && (
+                    <Typography fontSize="16px" color="#133E87">Loading...</Typography>
+                  )}
 
+                  {!loadingSubjects && subjectsErr && (
+                    <Typography fontSize="16px" color="#D41E1E">Error: {subjectsErr}</Typography>
+                  )}
+
+                  {!loadingSubjects && !subjectsErr && teacherSubjects.length === 0 && (
+                    <Typography fontSize="16px" color="#133E87">No subjects</Typography>
+                  )}
+
+                  {!loadingSubjects && !subjectsErr &&
+                    teacherSubjects.map((name) => (
+                      <Typography key={name} fontWeight="300" fontSize="18px" color="#133E87">
+                        {name}
+                      </Typography>
+                    ))
+                  }
                 </Box>
               )}
+
               <Divider orientation="vertical" flexItem sx={{ mx: 2, borderColor: "#fff", borderBottomWidth: "2px" }} />
-              <Box sx={{
-                flex: 1,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "flex-start",
-                justifyContent: "start",
-              }}>
+              <Box
+                sx={{
+                  flex: 1,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "flex-start",
+                  justifyContent: "start",
+                }}
+              >
                 <Typography fontWeight="500" fontSize="20px" color="#133E87" gutterBottom>
                   Contact{state.role === "student" ? "s" : ""} :
                 </Typography>
@@ -337,16 +412,16 @@ export default function UserInfoPage({
             </Box>
           </CardContent>
         </Card>
+
         <Box
           sx={{
             display: "flex",
-            justifyContent: "end"
+            justifyContent: "end",
           }}
         >
           <Button
             onClick={() => setOpenDialog(true)}
             sx={{
-              //height: 36,
               bgcolor: "#D41E1E",
               color: "#fff",
               fontSize: 18,
@@ -371,6 +446,7 @@ export default function UserInfoPage({
         profileImage={profileImage}
         setProfileImage={setProfileImage}
       />
+
       <Dialog
         open={openDialog}
         onClose={() => setOpenDialog(false)}
@@ -386,7 +462,7 @@ export default function UserInfoPage({
           sx={{
             fontWeight: 700,
             fontSize: "20px",
-            color: "#d32f2f", // สีแดงเล็กน้อยให้เด่น
+            color: "#d32f2f",
           }}
         >
           Confirm Deletion
@@ -427,8 +503,6 @@ export default function UserInfoPage({
           </Button>
         </DialogActions>
       </Dialog>
-
     </Box>
   );
 }
-

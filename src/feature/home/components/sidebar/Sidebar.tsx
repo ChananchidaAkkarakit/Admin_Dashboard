@@ -135,6 +135,7 @@ export default function Sidebar({ profileImage }: SidebarProps) {
           display: "flex",
           flexDirection: "column",
           gap: 3,
+          m:4
         }}
       >
         <SidebarNavItem

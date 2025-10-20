@@ -50,18 +50,30 @@ export default function NotificationPage({
     getData();
   }, []);
 
+ const uniqByMessage = (list: Notification[]) => {
+    const seen = new Set<string>();
+    return list.filter((n) => {
+      if (seen.has(n.messageId)) return false;
+      seen.add(n.messageId);
+      return true;
+    });
+  };
+
+  const baseItems = useMemo(() => uniqByMessage(items), [items]);
+
   const filteredItems = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
-    if (!q) return items;
-    return items.filter(
+    const pool = baseItems; // 👈 ใช้รายการที่ dedupe แล้ว
+    if (!q) return pool;
+    return pool.filter(
       (item) =>
         item.messageName.toLowerCase().includes(q) ||
         item.message.toLowerCase().includes(q)
     );
-  }, [items, searchQuery]);
+  }, [baseItems, searchQuery]);
 
-  const adminNotifications = filteredItems.filter((item) => item.source === "admin");
-  const systemNotifications = filteredItems.filter((item) => item.source === "system");
+  const adminNotifications  = filteredItems.filter((i) => i.source === "admin");
+  const systemNotifications = filteredItems.filter((i) => i.source === "system");
 
   const StatusDot: React.FC<{ on: boolean }> = ({ on }) => (
     <Box

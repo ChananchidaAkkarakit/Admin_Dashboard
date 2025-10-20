@@ -1,13 +1,14 @@
 // 📁 QrCode/pages/QrCodePage.tsx
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Box, Typography, Grid } from "@mui/material";
 import { useNavigate } from "react-router-dom";
-import { useQRCodeContext } from "../contexts/QRCodeContext";
+//import { useQRCodeContext } from "../contexts/QRCodeContext";
 import QRmanagementItemCard from "../components/QRmanagementItemCard";
 import SideProfilePanel from "../../../home/components/SideProfilePanel";
 import ArrowBackIcon from "../../../../assets/icons/arrow-back.svg?react";
 import SearchBar from "../../../../components/SearchBar";
 import AddIcon from "../../../../assets/icons/add.svg?react";
+import { supabase } from "../../../../supabaseClient";
 //import type { EnrichedQRCodeSlot as QRCodeSlot } from "../../../../../../backend/src/mock/types";
 // ที่บนสุดของ QrCodePage.tsx
 type QrCodePageProps = {
@@ -21,8 +22,20 @@ export default function QrCodePage({
   profileImage,
   setProfileImage,
 }: QrCodePageProps) {
+
+  type QRItem = {
+    slotId: string;
+    cupboardId: string | null;
+    teacherName: string | null;
+    connectionStatus: "active" | "inactive" | null;
+    qrId: string | null;
+  };
+
+  // --- แทนที่การใช้ Context ด้วย state ภายในหน้า ---
+  // ลบบรรทัดเดิม: const { slots } = useQRCodeContext();
+  const [slots, setSlots] = useState<QRItem[]>([]);
   const navigate = useNavigate();
-  const { slots } = useQRCodeContext();
+  //const { slots } = useQRCodeContext();
   const [searchQuery, setSearchQuery] = useState("");
   const lowerQuery = searchQuery.toLowerCase();
 
@@ -61,6 +74,83 @@ export default function QrCodePage({
     acc[cid].push(qr);
     return acc;
   }, {} as Record<string, typeof slots[number][]>);
+
+  // QrCodePage.tsx (ภายใน useEffect เดิมที่โหลดข้อมูล)
+  useEffect(() => {
+  (async () => {
+    // 1) qrcodes
+    const { data: qrRows, error: qrErr } = await supabase
+      .from("qrcodes")
+      .select("qr_id, slot_id, cupboard_id, teacher_id");
+    if (qrErr) console.error("qrcodes error:", qrErr);
+
+    // 2) slots
+    const { data: slotRows, error: sErr } = await supabase
+      .from("slots")
+      .select("slot_id, cupboard_id, connection_status, teacher_id");
+    if (sErr) console.error("slots error:", sErr);
+
+    // 3) map qrcodes -> slot_id
+    const qrMap: Record<string, { qrId: string|null; qrCupboardId: string|null; qrTeacherId: string|null }> = {};
+    (qrRows ?? []).forEach((q: any) => {
+      qrMap[q.slot_id] = {
+        qrId: q?.qr_id ?? null,
+        qrCupboardId: q?.cupboard_id ?? null,
+        qrTeacherId: q?.teacher_id ?? null,
+      };
+    });
+
+    // 4) รวม teacher_id จากทั้ง slots และ qrcodes
+    const teacherIds = Array.from(new Set<string>([
+      ...((slotRows ?? []).map((r: any) => r.teacher_id).filter(Boolean) as string[]),
+      ...((qrRows ?? []).map((q: any) => q.teacher_id).filter(Boolean) as string[]),
+    ]));
+
+    // 5) ✅ ดึงชื่อจาก users โดยใช้คีย์ teacher_id (ไม่ใช่ user_id)
+    let teacherMapByTeacherId: Record<string, string> = {};
+    if (teacherIds.length) {
+      const { data: users, error: uErr } = await supabase
+        .from("users")
+        .select("teacher_id, name_thai, name_eng")
+        .in("teacher_id", teacherIds); // <-- จุดแก้สำคัญ
+      if (uErr) console.error("users error:", uErr);
+
+      teacherMapByTeacherId = Object.fromEntries(
+        (users ?? []).map((u: any) => [
+          u.teacher_id,
+          (u.name_thai ?? u.name_eng ?? "") as string,
+        ])
+      );
+    }
+
+    // 6) รวมข้อมูลเป็น shape เดิม
+    const merged: QRItem[] = (slotRows ?? []).map((s: any) => {
+      const hit = qrMap[s.slot_id];
+      const teacherId: string | null = s?.teacher_id ?? hit?.qrTeacherId ?? null;
+      const teacherName = teacherId ? (teacherMapByTeacherId[teacherId] ?? null) : null;
+
+      return {
+        slotId: s.slot_id,
+        cupboardId: s.cupboard_id ?? hit?.qrCupboardId ?? null,
+        connectionStatus:
+          s?.connection_status === true || s?.connection_status === "active"
+            ? "active"
+            : "inactive",
+        qrId: hit?.qrId ?? null,
+        teacherName,
+      };
+    });
+
+    // 7) เรียง (cupboard → slot)
+    merged.sort((a, b) => {
+      const byCup = (a.cupboardId ?? "").localeCompare(b.cupboardId ?? "", "en", { numeric: true, sensitivity: "base" });
+      if (byCup !== 0) return byCup;
+      return a.slotId.localeCompare(b.slotId, "en", { numeric: true, sensitivity: "base" });
+    });
+
+    setSlots(merged);
+  })();
+}, []);
 
   return (
     <Box

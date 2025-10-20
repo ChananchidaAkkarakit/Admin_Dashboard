@@ -1,4 +1,3 @@
-// src/Notification/pages/NotificationAddPage.tsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Typography, Divider } from "@mui/material";
@@ -7,8 +6,8 @@ import SideProfilePanel from "../../../home/components/SideProfilePanel";
 import NotificationForm from "../components/NotificationForm";
 import type { NotificationFormValues } from "../components/NotificationForm";
 
-import { addNotification } from "../../../../api/notifications";   // ← เวอร์ชันที่ใช้ supabase
-import { supabase } from "../../../../supabaseClient";              // ← ใช้คำนวณ previewId
+import { addNotification } from "../../../../api/notifications";   // ✅ ใช้ API Supabase
+import { supabase } from "../../../../supabaseClient";              // ✅ ใช้คำนวณ previewId
 
 type NotificationAddPageProps = {
   setIsLoggedIn: React.Dispatch<React.SetStateAction<boolean>>;
@@ -24,12 +23,12 @@ export default function NotificationAddPage({
   const [previewId, setPreviewId] = useState("M--");
   const navigate = useNavigate();
 
-  // ✅ เลิกเรียก http://localhost:4000/... ใช้ Supabase นับแถว
+  // ✅ นับจำนวนจากตาราง message (ไม่ใช่ notification)
   useEffect(() => {
     (async () => {
       try {
         const { count, error } = await supabase
-          .from("notification")
+          .from("message")                              // ✅ นับจาก message
           .select("*", { count: "exact", head: true });
         if (error) throw error;
         const next = (count ?? 0) + 1;
@@ -41,16 +40,17 @@ export default function NotificationAddPage({
     })();
   }, []);
 
-  const handleSubmit = async (data: NotificationFormValues) => {
-    try {
-      await addNotification(data); // insert message -> notification -> select view
-      alert("เพิ่มข้อมูลสำเร็จ");
-      navigate("/app/management/notification");
-    } catch (error) {
-      console.error("Failed to add notification:", error);
-      alert("ไม่สามารถเพิ่มข้อมูลได้");
-    }
+const handleSubmit = async (data: NotificationFormValues) => {
+  const payload = {
+    messageName: data.messageName,
+    message: data.message,
+    type: data.type === "warning" || data.type === "error" ? data.type : "notification" as const,
   };
+  await addNotification(payload);
+  alert("เพิ่มเทมเพลตสำเร็จ");
+  navigate("/app/management/notification");
+};
+
 
   return (
     <Box sx={{ display: "flex", flexDirection: { xs: "column", sm: "column", md: "none", lg: "row" }, width: "100%" }}>
@@ -67,7 +67,6 @@ export default function NotificationAddPage({
 
         <Divider sx={{ mt: 3, mb: 2, borderColor: "#CBDCEB" }} />
 
-        {/* คง UI เดิมของฟอร์ม */}
         <NotificationForm previewId={previewId} mode="add" onSubmit={handleSubmit} />
       </Box>
 

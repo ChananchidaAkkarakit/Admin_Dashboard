@@ -91,7 +91,7 @@ export default function MonitoringOverviewPage() {
       <Grid container spacing={3}>
         {cards.map((item, i) => (
           <Grid item xs={12} sm={6} md={4} key={i}>
-            <Card elevation={2} sx={{ borderRadius: 5 }}>
+            <Card elevation={2} sx={{ borderRadius: 7 }}>
               <CardContent>
                 <Typography variant="subtitle2" color="text.secondary">
                   {item.label}
@@ -114,13 +114,13 @@ export default function MonitoringOverviewPage() {
         >
           ดูข้อมูลตู้ทั้งหมด
         </Button>
-        {/* <Button
+        <Button
           variant="outlined"
           onClick={() => navigate("/app/monitoring/login-details")}
           sx={{ borderRadius: "25px", fontSize: "15px", fontWeight: "bold", px: 5, py: 1, textTransform: "none" }}
         >
           ดูประวัติการเข้าสู่ระบบ
-        </Button> */}
+        </Button>
       </Box>
 
       {/* ⚠️ ความผิดปกติ */}

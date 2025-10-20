@@ -30,13 +30,23 @@ let boundGlobal = false;
 const lastPayloadByTopic = new Map<string, { payload: any; raw: Uint8Array }>();
 
 function safeParse(buf: Uint8Array) {
+  const s = new TextDecoder().decode(buf);
+  if (s === "") return null;
+
+  // ลอง parse JSON ก่อน
   try {
-    const s = new TextDecoder().decode(buf);
-    return s ? JSON.parse(s) : null;
+    return JSON.parse(s);
   } catch {
-    return null;
+    // Fallback: ถ้าเป็นตัวเลข (รวมกรณี "25,7" → "25.7")
+    const normalized = s.replace(",", ".");
+    const n = Number(normalized);
+    if (!Number.isNaN(n)) return n;
+
+    // สุดท้าย: ส่งเป็น string ดิบ
+    return s;
   }
 }
+
 
 /** MQTT wildcard matcher: supports + and # */
 function matchesWildcard(pattern: string, topic: string): boolean {
@@ -46,14 +56,16 @@ function matchesWildcard(pattern: string, topic: string): boolean {
 
   for (let i = 0; i < p.length; i++) {
     const seg = p[i];
-    if (seg === "#") return true; // match rest
+    if (seg === "#") {
+      // '#' ต้องเป็นตัวสุดท้ายใน pattern
+      return i === p.length - 1;
+    }
     if (seg === "+") {
       if (t[i] == null) return false;
       continue;
     }
     if (t[i] !== seg) return false;
   }
-  // extra segments on topic only valid if pattern ended with "#"
   return t.length === p.length;
 }
 
@@ -61,9 +73,14 @@ function bindGlobalMessageHandler() {
   if (boundGlobal) return;
   const c = ensureMqtt();
 
-  c.on("message", (topic: string, raw: Uint8Array) => {
+  c.on("message", (topic: string, raw: Uint8Array, packet?: any) => {
     const parsed = safeParse(raw);
     lastPayloadByTopic.set(topic, { payload: parsed, raw });
+
+    // ลอง debug retained/QoS (ถ้าต้องการ)
+    if (packet) {
+      dbi("mqtt/msg", { topic, retain: packet.retain, qos: packet.qos, payload: parsed });
+    }
 
     listeners.forEach((fn) => {
       try {
@@ -77,8 +94,18 @@ function bindGlobalMessageHandler() {
   boundGlobal = true;
 }
 
-/** ---------- HOOK ---------- */
-export function useMqtt(topics: string[] = []) {
+
+type UseMqttOptions = {
+  /** ถ้าเปิดไว้: จะไม่รีเลย์ retained message เป็นครั้งแรก (ต่อ topic) */
+  ignoreFirstRetained?: boolean;
+  /** ฟังก์ชันดึงค่าเริ่มต้นจาก DB (เช่น /api/lasts) แล้ว seed เข้า cache */
+  seedFromDb?: () => Promise<Record<string, any>>; // map: topic -> payload
+};
+
+const deliveredFirstRetained = new Set<string>(); // จำว่าส่ง retained ครั้งแรกไปแล้ว
+
+export function useMqtt(topics: string[] = [], opts?: UseMqttOptions) {
+
   const [status, setStatus] = useState<MqttStatus>("idle");
 
   // คิว publish ระหว่างยังไม่ต่อ
@@ -88,9 +115,29 @@ export function useMqtt(topics: string[] = []) {
   const topicsRef = useRef<string[]>([]);
   topicsRef.current = topics;
 
+
   useEffect(() => {
     setStatus("connecting");
     const c = ensureMqtt();
+
+    // ถ้ามีการ seed จาก DB ให้ทำครั้งเดียวตอนเชื่อมต่อ (หรือทันที)
+    const seed = async () => {
+      if (!opts?.seedFromDb) return;
+      try {
+        const map = await opts.seedFromDb();
+        Object.entries(map).forEach(([t, payload]) => {
+          lastPayloadByTopic.set(t, { payload, raw: new Uint8Array() });
+          // ส่งให้ผู้ฟังเหมือน message ปกติ
+          listeners.forEach((fn) => {
+            try { fn(t, payload, new Uint8Array()); } catch { }
+          });
+        });
+        dbi("mqtt/seedFromDb", Object.keys(map).length);
+      } catch (e) {
+        dbe("mqtt/seedFromDb/error", String(e));
+      }
+    };
+
 
     const flushQueue = () => {
       const q = pendingQueueRef.current;
@@ -105,11 +152,14 @@ export function useMqtt(topics: string[] = []) {
       topicsRef.current.forEach((t) => t && c.subscribe(t, { qos: 1 }));
     };
 
-    const onConnect = () => {
+    const onConnect = async () => {
+      setStatus("connected");
       dbi("mqtt/connect", "connected");
       doSubscribe();
       flushQueue();
+      await seed();
     };
+
     const onError = () => dbe("mqtt/error", "client error");
     const onReconnect = () => setStatus("connecting");
     const onClose = () => setStatus("idle");
@@ -128,23 +178,21 @@ export function useMqtt(topics: string[] = []) {
       flushQueue();
     }
 
-    return () => {
+
+return () => {
       c.off("connect", onConnect);
       c.off("reconnect", onReconnect);
       c.off("close", onClose);
       c.off("error", onError);
-      // ไม่ unsubscribe เพื่อไม่กระทบหน้าที่ใช้อยู่
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topics.join("|")]);
 
   /** ลงทะเบียนผู้ฟัง แล้วกรองด้วย wildcard-aware matcher */
   function onMessage(
-    cb: (topic: string, payload: any) => void,
-    opts?: { replayLast?: boolean }
+    cb: (topic: string, payload: any, meta?: { retained?: boolean }) => void,
+    opt?: { replayLast?: boolean }
   ): () => void {
-    const wrapper: GlobalListener = (topic, payload) => {
-      // ถ้า topicsRef มี wildcard ให้ตรวจด้วย matchesWildcard
+    const wrapper: GlobalListener = (topic, payload, raw) => {
       const interested = topicsRef.current.some((pat) => {
         if (!pat) return false;
         if (pat.includes("+") || pat.includes("#")) {
@@ -152,29 +200,37 @@ export function useMqtt(topics: string[] = []) {
         }
         return pat === topic;
       });
-      if (interested) cb(topic, payload);
+      if (!interested) return;
+
+      // ถ้ามีการ ignore retained ครั้งแรก
+      const pkt: any = (raw as any)?.packet; // ถ้าคุณสามารถแนบ packet เข้า raw ได้จาก ensureMqtt
+      const retained = pkt?.retain === true;
+
+      if (retained && opts?.ignoreFirstRetained && !deliveredFirstRetained.has(topic)) {
+        deliveredFirstRetained.add(topic);
+        // ข้าม retained ครั้งแรก
+        return;
+      }
+      cb(topic, payload, { retained });
     };
 
     listeners.add(wrapper);
 
-    // รีเพลย์ payload ล่าสุดทันที (รองรับ wildcard)
-    if (opts?.replayLast) {
+    // รีเพลย์ล่าสุด (จาก cache + seed DB ถ้าทำแล้ว)
+    if (opt?.replayLast) {
       const replay = () => {
         const pats = topicsRef.current.filter(Boolean);
         if (!pats.length) return;
-        // วนทุก topic ที่เคยรับ แล้ว callback เฉพาะที่ match
         for (const [t, cached] of lastPayloadByTopic.entries()) {
           if (pats.some((pat) => matchesWildcard(pat, t))) {
             cb(t, cached.payload);
           }
         }
       };
-      if (typeof queueMicrotask === "function") {
-        queueMicrotask(replay);
-      } else {
-        setTimeout(replay, 0);
-      }
+      typeof queueMicrotask === "function" ? queueMicrotask(replay) : setTimeout(replay, 0);
     }
+
+
 
     return () => {
       listeners.delete(wrapper);

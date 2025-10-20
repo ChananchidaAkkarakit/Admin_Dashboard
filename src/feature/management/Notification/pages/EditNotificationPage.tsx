@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Box, Typography, Divider, CircularProgress } from "@mui/material";
+import { Box, Typography, Divider, CircularProgress, Button, Stack } from "@mui/material";
 import ArrowBackIcon from "../../../../assets/icons/arrow-back.svg?react";
 import NotificationForm from "../components/NotificationForm";
 import type { NotificationFormValues } from "../components/NotificationForm";
-import { fetchNotificationsById, updateNotification } from "../../../../api/notifications";
+import { fetchNotificationsById, updateNotification, sendNotificationToRole } from "../../../../api/notifications";
 import SideProfilePanel from "../../../home/components/SideProfilePanel";
 
 type NotificationEditPageProps = {
@@ -18,6 +18,7 @@ export default function NotificationEditPage({
   profileImage,
   setProfileImage,
 }: NotificationEditPageProps) {
+
   const { id } = useParams();
   const navigate = useNavigate();
   const [initialData, setInitialData] = useState<any>(null);
@@ -29,25 +30,45 @@ export default function NotificationEditPage({
       if (!id) return;
       setLoading(true);
       try {
-        const data = await fetchNotificationsById(id);
-        if (active) setInitialData(data);
+        const data = await fetchNotificationsById(id); // ✅ id = messageId
+        if (active) {
+          // ✅ map ให้ตรงกับฟอร์ม โดยไม่เปลี่ยน UI
+          setInitialData({
+            messageId: data.messageId,
+            messageName: data.messageName,
+            message: data.message,
+            type: data.type === "info" ? "notification" : data.type,
+            source: data.source,
+            status: data.status,
+          });
+        }
       } finally {
         if (active) setLoading(false);
       }
     }
     run();
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, [id]);
 
   const handleSubmit = async (data: NotificationFormValues) => {
+    // ✅ map type กลับก่อนอัปเดต
     const payload = {
       ...data,
-      type: data.type === "notification" ? "info" : data.type, // 👈 remap ให้ตรง backend
+      type: data.type === "notification" ? "info" : data.type,
     };
-    await updateNotification(id!, payload as any);
+    await updateNotification(id!, data as any); // ✅ id = messageId
     navigate("/app/management/notification");
+  };
+  // ✅ ส่งแจ้งเตือนตาม role (สคีมา: 'teacher' | 'student')
+  const handleQuickSend = async (role: "teacher" | "student") => {
+    try {
+      if (!initialData?.messageId) return alert("ไม่พบ messageId ของเทมเพลต");
+      await sendNotificationToRole(initialData.messageId, role);
+      alert(role === "teacher" ? "ส่งแจ้งเตือนให้อาจารย์แล้ว" : "ส่งแจ้งเตือนให้นักศึกษาแล้ว");
+    } catch (e) {
+      console.error(e);
+      alert("ส่งแจ้งเตือนไม่สำเร็จ");
+    }
   };
 
   return (
@@ -93,7 +114,18 @@ export default function NotificationEditPage({
             <Typography>Loading…</Typography>
           </Box>
         ) : initialData ? (
-          <NotificationForm mode="edit" onSubmit={handleSubmit} initialData={initialData} />
+          <>
+            <NotificationForm mode="edit" onSubmit={handleSubmit} initialData={initialData} />
+            {/* แอดปุ่มเฉพาะตรงนี้ ไม่แตะ UI อื่น */}
+            <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+              <Button variant="contained" onClick={() => handleQuickSend("teacher")}>
+                ส่งให้อาจารย์
+              </Button>
+              <Button variant="outlined" onClick={() => handleQuickSend("student")}>
+                ส่งให้นักศึกษา
+              </Button>
+            </Stack>
+          </>
         ) : (
           <Typography color="error" fontStyle="italic">
             Not found.

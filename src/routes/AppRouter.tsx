@@ -26,7 +26,8 @@ import SlotDashboard from "../feature/monitoring/page/SlotDashboard";
 import RegistrationSearch from "../feature/home/components/RegistrationSearch"; 
 import TeacherFormPage from "../feature/home/page/TeacherFormPage";
 import StudentFormPage from "../feature/home/page/StudentFormPage";
-
+//import LoginDetailsPage from "src/feature/monitoring/page/LoginDetailsPage";
+import LoginDetailsPageMock from "../feature/monitoring/page/LoginDetailsPage.mock.tsx";
 import MqttBackgroundBridge from "../feature/_infra/MqttBackgroundBridge";
 
 export default function AppRouter() {
@@ -112,6 +113,8 @@ export default function AppRouter() {
             <Route index element={<MonitoringOverviewPage />} />
             <Route path="items" element={<MonitoringAllItems />} />
             <Route path="slot/:slotId" element={<SlotDashboard />} />
+            {/* <Route path="login-details" element={<LoginDetailsPage />} /> */}
+            <Route path="login-details" element={<LoginDetailsPageMock />} />
           </Route>
 
           <Route path="settings" element={<SettingsPage />} />
